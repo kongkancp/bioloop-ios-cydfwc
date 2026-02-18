@@ -3,6 +3,8 @@ import { colors } from '@/styles/commonStyles';
 import { useSubscription } from '@/hooks/useSubscription';
 import { IconSymbol } from '@/components/IconSymbol';
 import React, { useState } from 'react';
+import DataManager from '@/services/DataManager';
+import { SubscriptionProduct } from '@/types/subscription';
 import {
   View,
   Text,
@@ -15,10 +17,8 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { SubscriptionProduct } from '@/types/subscription';
 import { Stack, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import DataManager from '@/services/DataManager';
 
 const styles = StyleSheet.create({
   container: {
@@ -225,6 +225,26 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
+  editRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    minHeight: 56,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  editRowContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  editRowText: {
+    fontSize: 17,
+    fontWeight: '400',
+    color: colors.text,
+  },
 });
 
 export default function ProfileScreen() {
@@ -232,6 +252,11 @@ export default function ProfileScreen() {
   const { isSubscribed } = useSubscription();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleEditProfile = () => {
+    console.log('ProfileScreen: User tapped Edit Profile');
+    router.push('/edit-profile');
+  };
 
   const handleUpgradeToPremium = () => {
     console.log('ProfileScreen: User tapped Upgrade to Premium');
@@ -308,6 +333,27 @@ export default function ProfileScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+        <Text style={styles.sectionHeader}>Profile</Text>
+        <View style={styles.card}>
+          <TouchableOpacity style={styles.editRow} onPress={handleEditProfile}>
+            <View style={styles.editRowContent}>
+              <IconSymbol
+                ios_icon_name="person.circle.fill"
+                android_material_icon_name="account-circle"
+                size={24}
+                color={colors.primary}
+              />
+              <Text style={styles.editRowText}>Edit Profile</Text>
+            </View>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+        </View>
+
         <Text style={styles.sectionHeader}>Subscription</Text>
         <View style={styles.card}>
           {subscriptionActive ? (
