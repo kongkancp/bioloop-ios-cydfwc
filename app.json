@@ -1,3 +1,4 @@
+
 {
   "expo": {
     "name": "BioLoop",
@@ -10,22 +11,24 @@
     "splash": {
       "image": "./assets/images/app-icon-tyg.png",
       "resizeMode": "contain",
-      "backgroundColor": "#000000"
+      "backgroundColor": "#0066FF"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.Natively",
+      "bundleIdentifier": "com.bioloop.app",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSHealthShareUsageDescription": "BioLoop analyzes your heart rate, HRV, sleep, and workout data to calculate your Performance Index and biological age. Your data never leaves your device.",
+        "NSHealthUpdateUsageDescription": "BioLoop needs to read your health data to provide personalized insights."
       }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/app-icon-tyg.png",
-        "backgroundColor": "#000000"
+        "backgroundColor": "#0066FF"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.Natively"
+      "package": "com.bioloop.app"
     },
     "web": {
       "favicon": "./assets/images/final_quest_240x240.png",
@@ -36,7 +39,7 @@
       "expo-router",
       "expo-web-browser"
     ],
-    "scheme": "BioLoop",
+    "scheme": "bioloop",
     "experiments": {
       "typedRoutes": true
     },

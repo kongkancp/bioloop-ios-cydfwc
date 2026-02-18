@@ -9,6 +9,14 @@ export default function TabLayout() {
         <Icon sf="house.fill" />
         <Label>Home</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger key="activity" name="activity">
+        <Icon sf="chart.bar.fill" />
+        <Label>Activity</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger key="biology" name="biology">
+        <Icon sf="heart.text.square.fill" />
+        <Label>Biology</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger key="profile" name="profile">
         <Icon sf="person.fill" />
         <Label>Profile</Label>
