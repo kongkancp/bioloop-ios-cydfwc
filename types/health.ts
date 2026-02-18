@@ -18,6 +18,8 @@ export interface DailyMetrics {
   bodyMass?: number;
   workouts: WorkoutSession[];
   computedAt: Date;
+  loadScore?: number; // 0-100 training stress score
+  dailyLoad?: number; // Raw load value for ACWR calculation
 }
 
 export interface WorkoutSession {

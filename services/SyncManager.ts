@@ -6,6 +6,7 @@ import { DailyMetrics, Baselines } from '@/types/health';
 import HealthKitManager from './HealthKitManager';
 import { validateAndClamp } from '@/utils/validation';
 import { calculateBaselines, calculateAge } from '@/utils/baselines';
+import { calculateLoadScore } from '@/utils/loadScore';
 import { startOfDay, isSameDay, subDays } from 'date-fns';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -178,6 +179,30 @@ class SyncManager {
   }
 
   /**
+   * Calculate Load Score for metrics
+   * Requires baselines to be set (for maxHR)
+   */
+  private calculateMetricsLoadScore(metrics: DailyMetrics): DailyMetrics {
+    // Need baselines for maxHR and restingHR
+    if (!this.baselines || !metrics.restingHR || metrics.workouts.length === 0) {
+      console.log('SyncManager: Cannot calculate Load Score - missing baselines or data');
+      return metrics;
+    }
+    
+    const { loadScore, dailyLoad } = calculateLoadScore(
+      metrics.workouts,
+      metrics.restingHR,
+      this.baselines.hrMax
+    );
+    
+    return {
+      ...metrics,
+      loadScore,
+      dailyLoad,
+    };
+  }
+
+  /**
    * Main sync method - fetches, validates, and saves daily metrics
    * Returns early if already synced today
    * Calculates baselines on first sync if not already calculated
@@ -229,9 +254,13 @@ class SyncManager {
       console.log('SyncManager: Validating and clamping metrics');
       const validatedMetrics = validateAndClamp(rawMetrics);
       
+      // Calculate Load Score
+      console.log('SyncManager: Calculating Load Score');
+      const metricsWithLoad = this.calculateMetricsLoadScore(validatedMetrics);
+      
       // Save to local storage
       console.log('SyncManager: Saving metrics to storage');
-      await this.saveToStorage(validatedMetrics);
+      await this.saveToStorage(metricsWithLoad);
       
       // Update last sync date
       await this.saveLastSyncDate(today);
@@ -241,7 +270,7 @@ class SyncManager {
       return {
         success: true,
         message: 'Data updated',
-        metrics: validatedMetrics,
+        metrics: metricsWithLoad,
         baselines: calculatedBaselines,
       };
     } catch (error) {
