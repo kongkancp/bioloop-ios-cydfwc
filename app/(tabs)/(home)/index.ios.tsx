@@ -1,11 +1,8 @@
 
 import { colors } from '@/styles/commonStyles';
-import { useDailySync } from '@/hooks/useDailySync';
 import { IconSymbol } from '@/components/IconSymbol';
-import React, { useState } from 'react';
 import { Stack } from 'expo-router';
-import { HealthMetric } from '@/types/health';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -15,7 +12,9 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { getPerformanceLevel, getPerformanceMessage } from '@/utils/performanceIndex';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useDailySync } from '@/hooks/useDailySync';
+import Svg, { Circle } from 'react-native-svg';
 
 export default function HomeScreen() {
   const { metrics, baselines, loading, syncing, syncNow } = useDailySync();
@@ -33,71 +32,65 @@ export default function HomeScreen() {
     setRefreshing(false);
   };
 
-  const getHealthMetrics = (): HealthMetric[] => {
-    if (!metrics) return [];
-
-    const metricsArray: HealthMetric[] = [];
-
-    if (metrics.restingHR !== undefined) {
-      metricsArray.push({
-        label: 'Resting HR',
-        value: Math.round(metrics.restingHR).toString(),
-        unit: 'BPM',
-        icon: 'favorite',
-        iosIcon: 'heart.fill',
-        color: colors.primary,
-      });
-    }
-
-    if (metrics.hrv !== undefined) {
-      metricsArray.push({
-        label: 'HRV',
-        value: Math.round(metrics.hrv).toString(),
-        unit: 'ms',
-        icon: 'show-chart',
-        iosIcon: 'waveform.path.ecg',
-        color: colors.primary,
-      });
-    }
-
-    if (metrics.vo2max !== undefined) {
-      metricsArray.push({
-        label: 'VO2 Max',
-        value: metrics.vo2max.toFixed(1),
-        unit: 'ml/kg/min',
-        icon: 'air',
-        iosIcon: 'wind',
-        color: colors.primary,
-      });
-    }
-
-    if (metrics.sleepDuration !== undefined) {
-      const hours = Math.floor(metrics.sleepDuration);
-      const minutes = Math.round((metrics.sleepDuration - hours) * 60);
-      metricsArray.push({
-        label: 'Sleep',
-        value: `${hours}h ${minutes}m`,
-        unit: '',
-        icon: 'bedtime',
-        iosIcon: 'bed.double.fill',
-        color: colors.primary,
-      });
-    }
-
-    return metricsArray;
+  // Calculate Readiness Score
+  const calculateReadinessScore = (): number => {
+    if (!metrics) return 0;
+    
+    const recovery = metrics.recoveryEfficiency ?? 50;
+    const sleepScore = ((metrics.sleepDuration ?? 7) / 8) * 100;
+    const strain = 100 - (metrics.loadScore ?? 0);
+    
+    const readiness = (recovery * 0.5) + (sleepScore * 0.3) + (strain * 0.2);
+    return Math.max(0, Math.min(100, readiness));
   };
 
-  // Calculate Performance Index display values
-  const performanceIndex = metrics?.performanceIndex;
-  const performanceIndexRaw = metrics?.performanceIndexRaw;
-  const performanceLevel = performanceIndex !== undefined 
-    ? getPerformanceLevel(performanceIndex) 
-    : null;
-  const performanceMessage = performanceIndex !== undefined 
-    ? getPerformanceMessage(performanceIndex) 
-    : null;
+  const readinessScore = calculateReadinessScore();
 
-  const healthMetrics = getHealthMetrics();
+  // Get readiness color
+  const getReadinessColor = (score: number): string => {
+    if (score >= 80) return '#34C759'; // Green
+    if (score >= 65) return '#30D158'; // Light green
+    if (score >= 50) return '#FFCC00'; // Yellow
+    if (score >= 35) return '#FF9500'; // Orange
+    return '#FF3B30'; // Red
+  };
+
+  const getReadinessLevel = (score: number): string => {
+    if (score >= 80) return 'OPTIMAL';
+    if (score >= 65) return 'GOOD';
+    if (score >= 50) return 'MODERATE';
+    if (score >= 35) return 'LOW';
+    return 'POOR';
+  };
+
+  // Get greeting based on time of day
+  const getGreeting = (): string => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
+  };
+
+  // Format current date
+  const getCurrentDateString = (): string => {
+    const now = new Date();
+    const options: Intl.DateTimeFormatOptions = { 
+      weekday: 'long', 
+      month: 'long', 
+      day: 'numeric' 
+    };
+    return now.toLocaleDateString('en-US', options);
+  };
+
+  const greeting = getGreeting();
+  const dateString = getCurrentDateString();
+  const readinessColor = getReadinessColor(readinessScore);
+  const readinessLevel = getReadinessLevel(readinessScore);
+
+  // Component scores
+  const recoveryScore = metrics?.recoveryEfficiency ?? 0;
+  const sleepScore = ((metrics?.sleepDuration ?? 7) / 8) * 100;
+  const strainScore = 100 - (metrics?.loadScore ?? 0);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -120,7 +113,10 @@ export default function HomeScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>BioLoop</Text>
+          <View style={styles.headerLeft}>
+            <Text style={styles.greeting}>{greeting}</Text>
+            <Text style={styles.dateText}>{dateString}</Text>
+          </View>
           <TouchableOpacity
             style={styles.syncButton}
             onPress={handleSync}
@@ -146,138 +142,251 @@ export default function HomeScreen() {
           </View>
         ) : (
           <>
-            {/* Performance Index Card */}
-            {performanceIndex !== undefined && performanceLevel && (
-              <View style={styles.performanceCard}>
-                <Text style={styles.performanceLabel}>Performance Index</Text>
-                
-                <View style={styles.performanceMainRow}>
-                  <View style={styles.performanceScoreContainer}>
-                    <Text style={[styles.performanceScore, { color: performanceLevel.color }]}>
-                      {Math.round(performanceIndex)}
+            {/* Readiness Card */}
+            <View style={styles.readinessCard}>
+              <Text style={styles.readinessTitle}>Today&apos;s Readiness</Text>
+              
+              <View style={styles.readinessMainRow}>
+                {/* Circular Progress */}
+                <View style={styles.circleContainer}>
+                  <Svg width={120} height={120}>
+                    {/* Background circle */}
+                    <Circle
+                      cx={60}
+                      cy={60}
+                      r={52}
+                      stroke="#E5E7EB"
+                      strokeWidth={16}
+                      fill="none"
+                    />
+                    {/* Progress circle */}
+                    <Circle
+                      cx={60}
+                      cy={60}
+                      r={52}
+                      stroke={readinessColor}
+                      strokeWidth={16}
+                      fill="none"
+                      strokeDasharray={`${2 * Math.PI * 52}`}
+                      strokeDashoffset={`${2 * Math.PI * 52 * (1 - readinessScore / 100)}`}
+                      strokeLinecap="round"
+                      rotation="-90"
+                      origin="60, 60"
+                    />
+                  </Svg>
+                  <View style={styles.circleCenter}>
+                    <Text style={[styles.readinessScoreText, { color: readinessColor }]}>
+                      {Math.round(readinessScore)}
                     </Text>
-                    <Text style={styles.performanceUnit}>/100</Text>
-                  </View>
-                  
-                  <View style={styles.performanceLevelContainer}>
-                    <View style={[styles.levelBadge, { backgroundColor: performanceLevel.color }]}>
-                      <Text style={styles.levelBadgeText}>{performanceLevel.level}</Text>
-                    </View>
+                    <Text style={styles.readinessLevelText}>{readinessLevel}</Text>
                   </View>
                 </View>
-
-                {performanceMessage && (
-                  <Text style={styles.performanceMessage}>{performanceMessage}</Text>
-                )}
 
                 {/* Component Breakdown */}
-                <View style={styles.componentsContainer}>
-                  <Text style={styles.componentsTitle}>Components</Text>
-                  
+                <View style={styles.componentsBreakdown}>
                   <View style={styles.componentRow}>
-                    <View style={styles.componentItem}>
-                      <Text style={styles.componentLabel}>Load</Text>
-                      <Text style={styles.componentValue}>
-                        {metrics.loadScore !== undefined ? Math.round(metrics.loadScore) : '-'}
-                      </Text>
-                      <Text style={styles.componentWeight}>40%</Text>
-                    </View>
-                    
-                    <View style={styles.componentItem}>
-                      <Text style={styles.componentLabel}>ACWR</Text>
-                      <Text style={styles.componentValue}>
-                        {metrics.acwrScore !== undefined ? Math.round(metrics.acwrScore) : '-'}
-                      </Text>
-                      <Text style={styles.componentWeight}>30%</Text>
-                    </View>
-                    
-                    <View style={styles.componentItem}>
-                      <Text style={styles.componentLabel}>Recovery</Text>
-                      <Text style={styles.componentValue}>
-                        {metrics.recoveryEfficiency !== undefined ? Math.round(metrics.recoveryEfficiency) : '-'}
-                      </Text>
-                      <Text style={styles.componentWeight}>30%</Text>
-                    </View>
+                    <Text style={styles.componentLabel}>Recovery</Text>
+                    <Text style={styles.componentValue}>{Math.round(recoveryScore)}</Text>
+                  </View>
+                  <View style={styles.componentRow}>
+                    <Text style={styles.componentLabel}>Sleep</Text>
+                    <Text style={styles.componentValue}>{Math.round(sleepScore)}</Text>
+                  </View>
+                  <View style={styles.componentRow}>
+                    <Text style={styles.componentLabel}>Strain</Text>
+                    <Text style={styles.componentValue}>{Math.round(strainScore)}</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* Metrics Grid */}
+            <View style={styles.metricsSection}>
+              <View style={styles.metricsGrid}>
+                {/* HRV Card */}
+                <View style={styles.metricCard}>
+                  <IconSymbol
+                    ios_icon_name="waveform.path.ecg"
+                    android_material_icon_name="show-chart"
+                    size={28}
+                    color={colors.primary}
+                  />
+                  <Text style={styles.metricLabel}>HRV</Text>
+                  <View style={styles.metricValueRow}>
+                    <Text style={styles.metricValue}>
+                      {metrics?.hrv !== undefined ? Math.round(metrics.hrv) : '-'}
+                    </Text>
+                    <Text style={styles.metricUnit}>ms</Text>
                   </View>
                 </View>
 
-                {/* Raw vs Smoothed */}
-                {performanceIndexRaw !== undefined && (
-                  <View style={styles.smoothingInfo}>
-                    <Text style={styles.smoothingLabel}>
-                      Raw: {Math.round(performanceIndexRaw)} • Smoothed (7-day EMA): {Math.round(performanceIndex)}
+                {/* Resting HR Card */}
+                <View style={styles.metricCard}>
+                  <IconSymbol
+                    ios_icon_name="heart.fill"
+                    android_material_icon_name="favorite"
+                    size={28}
+                    color={colors.primary}
+                  />
+                  <Text style={styles.metricLabel}>Resting HR</Text>
+                  <View style={styles.metricValueRow}>
+                    <Text style={styles.metricValue}>
+                      {metrics?.restingHR !== undefined ? Math.round(metrics.restingHR) : '-'}
+                    </Text>
+                    <Text style={styles.metricUnit}>bpm</Text>
+                  </View>
+                </View>
+
+                {/* Sleep Card */}
+                <View style={styles.metricCard}>
+                  <IconSymbol
+                    ios_icon_name="moon.fill"
+                    android_material_icon_name="bedtime"
+                    size={28}
+                    color={colors.primary}
+                  />
+                  <Text style={styles.metricLabel}>Sleep</Text>
+                  <View style={styles.metricValueRow}>
+                    <Text style={styles.metricValue}>
+                      {metrics?.sleepDuration !== undefined 
+                        ? metrics.sleepDuration.toFixed(1) 
+                        : '-'}
+                    </Text>
+                    <Text style={styles.metricUnit}>hr</Text>
+                  </View>
+                </View>
+
+                {/* BioAge Card */}
+                <View style={styles.metricCard}>
+                  <IconSymbol
+                    ios_icon_name="figure.walk"
+                    android_material_icon_name="directions-walk"
+                    size={28}
+                    color={colors.primary}
+                  />
+                  <Text style={styles.metricLabel}>BioAge</Text>
+                  <View style={styles.metricValueRow}>
+                    <Text style={styles.metricValue}>
+                      {metrics?.bioAgeSmoothed !== undefined 
+                        ? metrics.bioAgeSmoothed.toFixed(1) 
+                        : '-'}
+                    </Text>
+                    <Text style={styles.metricUnit}>yrs</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* Insights Section */}
+            <View style={styles.insightsSection}>
+              <Text style={styles.sectionTitle}>Insights</Text>
+              
+              {readinessScore >= 80 && (
+                <View style={styles.insightCard}>
+                  <IconSymbol
+                    ios_icon_name="checkmark.circle.fill"
+                    android_material_icon_name="check-circle"
+                    size={24}
+                    color="#34C759"
+                  />
+                  <View style={styles.insightTextContainer}>
+                    <Text style={styles.insightTitle}>Excellent Readiness</Text>
+                    <Text style={styles.insightText}>
+                      Your body is well-recovered and ready for high-intensity training today.
                     </Text>
                   </View>
-                )}
-              </View>
-            )}
-
-            {/* Health Metrics Grid */}
-            {healthMetrics.length > 0 && (
-              <View style={styles.metricsSection}>
-                <Text style={styles.sectionTitle}>Today's Metrics</Text>
-                <View style={styles.metricsGrid}>
-                  {healthMetrics.map((metric, index) => (
-                    <View key={index} style={styles.metricCard}>
-                      <IconSymbol
-                        ios_icon_name={metric.iosIcon}
-                        android_material_icon_name={metric.icon}
-                        size={32}
-                        color={metric.color}
-                      />
-                      <Text style={styles.metricLabel}>{metric.label}</Text>
-                      <View style={styles.metricValueRow}>
-                        <Text style={styles.metricValue}>{metric.value}</Text>
-                        {metric.unit && (
-                          <Text style={styles.metricUnit}>{metric.unit}</Text>
-                        )}
-                      </View>
-                    </View>
-                  ))}
                 </View>
-              </View>
-            )}
+              )}
 
-            {/* Workouts */}
-            {metrics && metrics.workouts.length > 0 && (
-              <View style={styles.workoutsSection}>
-                <Text style={styles.sectionTitle}>Today's Workouts</Text>
-                {metrics.workouts.map((workout, index) => {
-                  const startTime = new Date(workout.startTime);
-                  const timeString = startTime.toLocaleTimeString('en-US', {
-                    hour: 'numeric',
-                    minute: '2-digit',
-                  });
+              {readinessScore >= 50 && readinessScore < 80 && (
+                <View style={styles.insightCard}>
+                  <IconSymbol
+                    ios_icon_name="info.circle.fill"
+                    android_material_icon_name="info"
+                    size={24}
+                    color="#FFCC00"
+                  />
+                  <View style={styles.insightTextContainer}>
+                    <Text style={styles.insightTitle}>Moderate Readiness</Text>
+                    <Text style={styles.insightText}>
+                      Consider moderate-intensity training. Listen to your body and avoid overtraining.
+                    </Text>
+                  </View>
+                </View>
+              )}
 
-                  return (
-                    <View key={index} style={styles.workoutCard}>
-                      <View style={styles.workoutHeader}>
-                        <Text style={styles.workoutType}>{workout.type}</Text>
-                        <Text style={styles.workoutTime}>{timeString}</Text>
-                      </View>
-                      <View style={styles.workoutStats}>
-                        <View style={styles.workoutStat}>
-                          <Text style={styles.workoutStatLabel}>Duration</Text>
-                          <Text style={styles.workoutStatValue}>
-                            {Math.round(workout.duration)} min
-                          </Text>
-                        </View>
-                        <View style={styles.workoutStat}>
-                          <Text style={styles.workoutStatLabel}>Avg HR</Text>
-                          <Text style={styles.workoutStatValue}>
-                            {Math.round(workout.averageHR)} BPM
-                          </Text>
-                        </View>
-                        <View style={styles.workoutStat}>
-                          <Text style={styles.workoutStatLabel}>Peak HR</Text>
-                          <Text style={styles.workoutStatValue}>
-                            {Math.round(workout.peakHR)} BPM
-                          </Text>
-                        </View>
-                      </View>
+              {readinessScore < 50 && (
+                <View style={styles.insightCard}>
+                  <IconSymbol
+                    ios_icon_name="exclamationmark.triangle.fill"
+                    android_material_icon_name="warning"
+                    size={24}
+                    color="#FF9500"
+                  />
+                  <View style={styles.insightTextContainer}>
+                    <Text style={styles.insightTitle}>Low Readiness</Text>
+                    <Text style={styles.insightText}>
+                      Focus on recovery today. Light activity or rest is recommended.
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {metrics?.sleepDuration !== undefined && metrics.sleepDuration < 7 && (
+                <View style={styles.insightCard}>
+                  <IconSymbol
+                    ios_icon_name="moon.zzz.fill"
+                    android_material_icon_name="bedtime"
+                    size={24}
+                    color={colors.primary}
+                  />
+                  <View style={styles.insightTextContainer}>
+                    <Text style={styles.insightTitle}>Sleep Opportunity</Text>
+                    <Text style={styles.insightText}>
+                      You got {metrics.sleepDuration.toFixed(1)} hours of sleep. Aim for 7-9 hours for optimal recovery.
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </View>
+
+            {/* BioAge Preview */}
+            {metrics?.bioAgeSmoothed !== undefined && baselines && (
+              <View style={styles.bioAgePreview}>
+                <Text style={styles.sectionTitle}>Biological Age</Text>
+                <View style={styles.bioAgeCard}>
+                  <View style={styles.bioAgeRow}>
+                    <View style={styles.bioAgeItem}>
+                      <Text style={styles.bioAgeLabel}>Biological Age</Text>
+                      <Text style={styles.bioAgeValue}>
+                        {metrics.bioAgeSmoothed.toFixed(1)}
+                      </Text>
+                      <Text style={styles.bioAgeUnit}>years</Text>
                     </View>
-                  );
-                })}
+                    
+                    <View style={styles.bioAgeDivider} />
+                    
+                    <View style={styles.bioAgeItem}>
+                      <Text style={styles.bioAgeLabel}>Longevity Score</Text>
+                      <Text style={styles.bioAgeValue}>
+                        {metrics.longevityScore !== undefined 
+                          ? Math.round(metrics.longevityScore) 
+                          : '-'}
+                      </Text>
+                      <Text style={styles.bioAgeUnit}>/100</Text>
+                    </View>
+                  </View>
+                  
+                  <TouchableOpacity style={styles.bioAgeButton}>
+                    <Text style={styles.bioAgeButtonText}>View Details</Text>
+                    <IconSymbol
+                      ios_icon_name="chevron.right"
+                      android_material_icon_name="chevron-right"
+                      size={20}
+                      color={colors.primary}
+                    />
+                  </TouchableOpacity>
+                </View>
               </View>
             )}
 
@@ -322,16 +431,24 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 16,
   },
-  headerTitle: {
-    fontSize: 34,
-    fontWeight: 'bold',
-    color: colors.text,
+  headerLeft: {
+    flex: 1,
+  },
+  greeting: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  dateText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   syncButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.cardBackground,
+    backgroundColor: colors.backgroundAlt,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -346,119 +463,69 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textSecondary,
   },
-  performanceCard: {
-    backgroundColor: colors.cardBackground,
+  readinessCard: {
+    backgroundColor: colors.backgroundAlt,
     borderRadius: 16,
     padding: 20,
     marginHorizontal: 20,
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
   },
-  performanceLabel: {
-    fontSize: 14,
+  readinessTitle: {
+    fontSize: 18,
     fontWeight: '600',
-    color: colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 12,
-  },
-  performanceMainRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    color: colors.text,
     marginBottom: 16,
   },
-  performanceScoreContainer: {
+  readinessMainRow: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  performanceScore: {
-    fontSize: 56,
+  circleContainer: {
+    width: 120,
+    height: 120,
+    position: 'relative',
+  },
+  circleCenter: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  readinessScoreText: {
+    fontSize: 36,
     fontWeight: 'bold',
   },
-  performanceUnit: {
-    fontSize: 24,
-    fontWeight: '600',
+  readinessLevelText: {
+    fontSize: 12,
     color: colors.textSecondary,
-    marginLeft: 4,
+    marginTop: 2,
   },
-  performanceLevelContainer: {
-    alignItems: 'flex-end',
-  },
-  levelBadge: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  levelBadgeText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  performanceMessage: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: colors.text,
-    marginBottom: 20,
-  },
-  componentsContainer: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: 16,
-  },
-  componentsTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: 12,
+  componentsBreakdown: {
+    flex: 1,
+    marginLeft: 20,
   },
   componentRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  componentItem: {
-    flex: 1,
     alignItems: 'center',
+    paddingVertical: 8,
   },
   componentLabel: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginBottom: 4,
+    fontSize: 15,
+    color: colors.text,
   },
   componentValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '600',
     color: colors.text,
-    marginBottom: 2,
-  },
-  componentWeight: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  smoothingInfo: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  smoothingLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    textAlign: 'center',
   },
   metricsSection: {
     paddingHorizontal: 20,
     marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 12,
   },
   metricsGrid: {
     flexDirection: 'row',
@@ -467,15 +534,10 @@ const styles = StyleSheet.create({
   },
   metricCard: {
     width: '48%',
-    backgroundColor: colors.cardBackground,
+    backgroundColor: colors.backgroundAlt,
     borderRadius: 12,
     padding: 16,
     margin: '1%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
   },
   metricLabel: {
     fontSize: 14,
@@ -497,52 +559,88 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginLeft: 4,
   },
-  workoutsSection: {
+  insightsSection: {
     paddingHorizontal: 20,
     marginBottom: 20,
   },
-  workoutCard: {
-    backgroundColor: colors.cardBackground,
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  insightCard: {
+    flexDirection: 'row',
+    backgroundColor: colors.backgroundAlt,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
   },
-  workoutHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+  insightTextContainer: {
+    flex: 1,
+    marginLeft: 12,
   },
-  workoutType: {
+  insightTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
-  },
-  workoutTime: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  workoutStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  workoutStat: {
-    flex: 1,
-  },
-  workoutStatLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
     marginBottom: 4,
   },
-  workoutStatValue: {
+  insightText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  bioAgePreview: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  bioAgeCard: {
+    backgroundColor: colors.backgroundAlt,
+    borderRadius: 12,
+    padding: 20,
+  },
+  bioAgeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 16,
+  },
+  bioAgeItem: {
+    alignItems: 'center',
+  },
+  bioAgeLabel: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
+  bioAgeValue: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: colors.text,
+  },
+  bioAgeUnit: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  bioAgeDivider: {
+    width: 1,
+    backgroundColor: colors.border,
+    marginHorizontal: 20,
+  },
+  bioAgeButton: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  bioAgeButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.text,
+    color: colors.primary,
+    marginRight: 4,
   },
   noDataContainer: {
     alignItems: 'center',

@@ -7,6 +7,7 @@ export const colors = {
   accent: '#00D4FF',       // Cyan accent
   background: '#FFFFFF',   // White background (light theme)
   backgroundAlt: '#F5F7FA', // Light grey background
+  cardBackground: '#F5F7FA', // Card background (same as backgroundAlt)
   text: '#1A1A1A',         // Dark text
   textSecondary: '#6B7280', // Grey text
   card: '#FFFFFF',         // White cards

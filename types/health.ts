@@ -15,8 +15,11 @@ export interface DailyMetrics {
   hrv?: number;
   vo2max?: number;
   sleepDuration?: number;
+  sleepConsistency?: number; // For BioAge calculation
   bodyMass?: number;
+  height?: number; // For BioAge BMI calculation (in cm)
   workouts: WorkoutSession[];
+  workoutsPerWeek?: number; // For BioAge calculation
   computedAt: Date;
   loadScore?: number; // 0-100 training stress score
   dailyLoad?: number; // Raw load value for ACWR calculation
@@ -25,6 +28,14 @@ export interface DailyMetrics {
   recoveryEfficiency?: number; // 0-100 cardiovascular recovery score
   performanceIndexRaw?: number; // Raw performance index (0-100)
   performanceIndex?: number; // Smoothed performance index with 7-day EMA (0-100)
+  autonomicIndex?: number | null; // BioAge component (-1 to 1)
+  vo2Index?: number | null; // BioAge component (-1 to 1)
+  sleepIndex?: number; // BioAge component (-1 to 1)
+  workoutIndex?: number; // BioAge component (-1 to 1)
+  bmiIndex?: number; // BioAge component (-1 to 1)
+  bioAge?: number; // Raw calculated biological age
+  bioAgeSmoothed?: number; // Smoothed biological age (14-day EMA)
+  longevityScore?: number; // BioAge vs Chronological Age score (0-100)
 }
 
 export interface WorkoutSession {
