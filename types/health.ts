@@ -23,6 +23,8 @@ export interface DailyMetrics {
   acwr?: number; // Acute to Chronic Workload Ratio
   acwrScore?: number; // ACWR converted to 0-100 score
   recoveryEfficiency?: number; // 0-100 cardiovascular recovery score
+  performanceIndexRaw?: number; // Raw performance index (0-100)
+  performanceIndex?: number; // Smoothed performance index with 7-day EMA (0-100)
 }
 
 export interface WorkoutSession {

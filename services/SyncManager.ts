@@ -9,6 +9,7 @@ import { calculateBaselines, calculateAge } from '@/utils/baselines';
 import { calculateLoadScore } from '@/utils/loadScore';
 import { calculateACWR, canCalculateACWR } from '@/utils/acwr';
 import { calculateRecoveryEfficiency } from '@/utils/recoveryEfficiency';
+import { calculatePerformanceIndex, applyEMA } from '@/utils/performanceIndex';
 import { startOfDay, isSameDay, subDays } from 'date-fns';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -361,6 +362,59 @@ class SyncManager {
   }
 
   /**
+   * Calculate and store Performance Index
+   * Combines Load Score (40%), ACWR Score (30%), and Recovery Efficiency (30%)
+   * Applies 7-day EMA smoothing
+   */
+  private async calculateMetricsPerformanceIndex(metrics: DailyMetrics): Promise<DailyMetrics> {
+    console.log('SyncManager: Calculating Performance Index');
+    
+    try {
+      // Get component scores (use defaults if not available)
+      const loadScore = metrics.loadScore ?? 0;
+      const acwrScore = metrics.acwrScore ?? 0;
+      const recovery = metrics.recoveryEfficiency ?? 50; // Default to neutral
+      
+      console.log('SyncManager: Performance Index components:', {
+        loadScore,
+        acwrScore,
+        recovery,
+      });
+      
+      // Calculate raw Performance Index
+      const rawIndex = calculatePerformanceIndex(
+        loadScore,
+        acwrScore,
+        recovery
+      );
+      
+      // Get yesterday's metrics for EMA calculation
+      const yesterday = subDays(metrics.date, 1);
+      const prevMetrics = await this.loadMetricsForDate(yesterday);
+      const prevEMA = prevMetrics?.performanceIndex;
+      
+      console.log('SyncManager: Previous EMA:', prevEMA);
+      
+      // Apply 7-day EMA smoothing
+      const smoothed = applyEMA(rawIndex, prevEMA, 7);
+      
+      console.log('SyncManager: Performance Index calculated:', {
+        raw: rawIndex.toFixed(2),
+        smoothed: smoothed.toFixed(2),
+      });
+      
+      return {
+        ...metrics,
+        performanceIndexRaw: rawIndex,
+        performanceIndex: smoothed,
+      };
+    } catch (error) {
+      console.error('SyncManager: Error calculating Performance Index', error);
+      return metrics;
+    }
+  }
+
+  /**
    * Main sync method - fetches, validates, and saves daily metrics
    * Returns early if already synced today
    * Calculates baselines on first sync if not already calculated
@@ -424,9 +478,13 @@ class SyncManager {
       console.log('SyncManager: Calculating Recovery Efficiency');
       const metricsWithRecovery = await this.calculateMetricsRecoveryEfficiency(metricsWithACWR);
       
+      // Calculate Performance Index
+      console.log('SyncManager: Calculating Performance Index');
+      const metricsWithPerformance = await this.calculateMetricsPerformanceIndex(metricsWithRecovery);
+      
       // Save to local storage
       console.log('SyncManager: Saving metrics to storage');
-      await this.saveToStorage(metricsWithRecovery);
+      await this.saveToStorage(metricsWithPerformance);
       
       // Update last sync date
       await this.saveLastSyncDate(today);
@@ -436,7 +494,7 @@ class SyncManager {
       return {
         success: true,
         message: 'Data updated',
-        metrics: metricsWithRecovery,
+        metrics: metricsWithPerformance,
         baselines: calculatedBaselines,
       };
     } catch (error) {
