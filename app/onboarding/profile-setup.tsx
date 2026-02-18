@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Platform } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,21 +10,46 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const USER_DOB_KEY = 'user_date_of_birth';
 const USER_HEIGHT_KEY = 'user_height';
+const USER_WEIGHT_KEY = 'user_weight';
+const USER_USE_METRIC_KEY = 'user_use_metric';
 
 export default function ProfileSetupScreen() {
   const router = useRouter();
   const [dateOfBirth, setDateOfBirth] = useState(new Date(1990, 0, 1));
   const [height, setHeight] = useState('170');
+  const [weight, setWeight] = useState('70');
+  const [useMetric, setUseMetric] = useState(true);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
+  const age = useMemo(() => {
+    const today = new Date();
+    const birthDate = new Date(dateOfBirth);
+    let calculatedAge = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      calculatedAge--;
+    }
+    return calculatedAge;
+  }, [dateOfBirth]);
+
+  const isValid = useMemo(() => {
+    const parsedHeight = parseFloat(height);
+    const parsedWeight = parseFloat(weight);
+    return age >= 18 && age <= 100 && parsedHeight > 0 && parsedWeight > 0;
+  }, [age, height, weight]);
+
   const handleNext = async () => {
-    console.log('User tapped Next on Profile Setup screen');
+    console.log('User tapped Continue on Profile Setup screen');
     console.log('Date of Birth:', dateOfBirth.toISOString());
-    console.log('Height:', height, 'cm');
+    console.log('Height:', height, useMetric ? 'cm' : 'in');
+    console.log('Weight:', weight, useMetric ? 'kg' : 'lbs');
+    console.log('Use Metric:', useMetric);
 
     try {
       await AsyncStorage.setItem(USER_DOB_KEY, dateOfBirth.toISOString());
       await AsyncStorage.setItem(USER_HEIGHT_KEY, height);
+      await AsyncStorage.setItem(USER_WEIGHT_KEY, weight);
+      await AsyncStorage.setItem(USER_USE_METRIC_KEY, useMetric ? 'true' : 'false');
       console.log('Profile data saved to AsyncStorage');
       router.push('/onboarding/healthkit-permission');
     } catch (error) {
@@ -53,7 +78,9 @@ export default function ProfileSetupScreen() {
   };
 
   const dateDisplay = formatDate(dateOfBirth);
-  const isValid = height.length > 0 && parseInt(height) > 0;
+  const ageDisplay = `Age: ${age}`;
+  const heightUnit = useMetric ? 'cm' : 'in';
+  const weightUnit = useMetric ? 'kg' : 'lbs';
 
   return (
     <>
@@ -76,7 +103,7 @@ export default function ProfileSetupScreen() {
           <View style={styles.content}>
             <Text style={styles.title}>Tell Us About Yourself</Text>
             <Text style={styles.subtitle}>
-              This helps us calculate accurate health metrics
+              This helps calculate BioAge
             </Text>
 
             <View style={styles.form}>
@@ -87,16 +114,16 @@ export default function ProfileSetupScreen() {
                   onPress={() => setShowDatePicker(true)}
                 >
                   <Text style={styles.inputText}>{dateDisplay}</Text>
-                  <IconSymbol
-                    ios_icon_name="calendar"
-                    android_material_icon_name="calendar-today"
-                    size={20}
-                    color={colors.textSecondary}
-                  />
+                  <View style={styles.inputRight}>
+                    <Text style={styles.ageText}>{ageDisplay}</Text>
+                    <IconSymbol
+                      ios_icon_name="calendar"
+                      android_material_icon_name="calendar-today"
+                      size={20}
+                      color="#0066FF"
+                    />
+                  </View>
                 </TouchableOpacity>
-                <Text style={styles.hint}>
-                  Used to calculate age-adjusted baselines
-                </Text>
               </View>
 
               {showDatePicker && (
@@ -110,19 +137,69 @@ export default function ProfileSetupScreen() {
                 />
               )}
 
+              <View style={styles.segmentedControl}>
+                <TouchableOpacity
+                  style={[
+                    styles.segmentButton,
+                    styles.segmentButtonLeft,
+                    useMetric && styles.segmentButtonActive,
+                  ]}
+                  onPress={() => {
+                    setUseMetric(true);
+                    console.log('Switched to Metric units');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.segmentText, useMetric && styles.segmentTextActive]}>
+                    Metric
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.segmentButton,
+                    styles.segmentButtonRight,
+                    !useMetric && styles.segmentButtonActive,
+                  ]}
+                  onPress={() => {
+                    setUseMetric(false);
+                    console.log('Switched to Imperial units');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.segmentText, !useMetric && styles.segmentTextActive]}>
+                    Imperial
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
               <View style={styles.formGroup}>
-                <Text style={styles.label}>Height (cm)</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={height}
-                  onChangeText={setHeight}
-                  keyboardType="numeric"
-                  placeholder="170"
-                  placeholderTextColor={colors.textSecondary}
-                />
-                <Text style={styles.hint}>
-                  Used for BMI and biological age calculations
-                </Text>
+                <Text style={styles.label}>Height</Text>
+                <View style={styles.textInputContainer}>
+                  <TextInput
+                    style={styles.textInput}
+                    value={height}
+                    onChangeText={setHeight}
+                    keyboardType="decimal-pad"
+                    placeholder={useMetric ? '170' : '67'}
+                    placeholderTextColor={colors.textSecondary}
+                  />
+                  <Text style={styles.unitText}>{heightUnit}</Text>
+                </View>
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Weight</Text>
+                <View style={styles.textInputContainer}>
+                  <TextInput
+                    style={styles.textInput}
+                    value={weight}
+                    onChangeText={setWeight}
+                    keyboardType="decimal-pad"
+                    placeholder={useMetric ? '70' : '154'}
+                    placeholderTextColor={colors.textSecondary}
+                  />
+                  <Text style={styles.unitText}>{weightUnit}</Text>
+                </View>
               </View>
             </View>
           </View>
@@ -172,8 +249,8 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 24,
+    paddingHorizontal: 32,
+    paddingTop: 40,
   },
   title: {
     fontSize: 28,
@@ -182,7 +259,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 17,
+    fontSize: 15,
     color: colors.textSecondary,
     marginBottom: 32,
   },
@@ -193,7 +270,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   label: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '600',
     color: colors.text,
   },
@@ -205,41 +282,83 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   inputText: {
     fontSize: 17,
     color: colors.text,
   },
-  textInput: {
+  inputRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  ageText: {
+    fontSize: 17,
+    color: colors.textSecondary,
+  },
+  segmentedControl: {
+    flexDirection: 'row',
+    backgroundColor: colors.card,
+    borderRadius: 8,
+    padding: 2,
+  },
+  segmentButton: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 6,
+  },
+  segmentButtonLeft: {
+    marginRight: 1,
+  },
+  segmentButtonRight: {
+    marginLeft: 1,
+  },
+  segmentButtonActive: {
+    backgroundColor: '#0066FF',
+  },
+  segmentText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  segmentTextActive: {
+    color: '#FFFFFF',
+  },
+  textInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: colors.card,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 16,
+  },
+  textInput: {
+    flex: 1,
     fontSize: 17,
     color: colors.text,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
-  hint: {
-    fontSize: 13,
+  unitText: {
+    fontSize: 17,
     color: colors.textSecondary,
+    marginLeft: 8,
   },
   footer: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 32,
     paddingVertical: 16,
     backgroundColor: colors.background,
+    paddingBottom: 40,
   },
   button: {
     backgroundColor: '#0066FF',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: 16,
   },
   buttonDisabled: {
-    opacity: 0.5,
+    backgroundColor: colors.textSecondary,
   },
   buttonText: {
     fontSize: 17,
