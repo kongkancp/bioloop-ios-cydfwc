@@ -16,10 +16,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDailySync } from '@/hooks/useDailySync';
 import Svg, { Circle } from 'react-native-svg';
+import EmptyDataView from '@/components/EmptyDataView';
+import HealthKitManager from '@/services/HealthKitManager';
 
 export default function HomeScreen() {
   const { metrics, baselines, loading, syncing, syncNow } = useDailySync();
   const [refreshing, setRefreshing] = useState(false);
+  const [hasPermission, setHasPermission] = useState(true);
 
   const handleSync = async () => {
     console.log('HomeScreen: User tapped Sync button');
@@ -31,6 +34,21 @@ export default function HomeScreen() {
     setRefreshing(true);
     await syncNow(true);
     setRefreshing(false);
+  };
+
+  const handleRequestPermission = async () => {
+    console.log('HomeScreen: User requesting HealthKit permission');
+    try {
+      const manager = new HealthKitManager();
+      const authorized = await manager.requestAuthorization();
+      setHasPermission(authorized);
+      
+      if (authorized) {
+        await syncNow(true);
+      }
+    } catch (error) {
+      console.error('HomeScreen: Error requesting permission:', error);
+    }
   };
 
   // Calculate Readiness Score
@@ -49,11 +67,11 @@ export default function HomeScreen() {
 
   // Get readiness color
   const getReadinessColor = (score: number): string => {
-    if (score >= 80) return '#34C759'; // Green
-    if (score >= 65) return '#30D158'; // Light green
-    if (score >= 50) return '#FFCC00'; // Yellow
-    if (score >= 35) return '#FF9500'; // Orange
-    return '#FF3B30'; // Red
+    if (score >= 80) return '#34C759';
+    if (score >= 65) return '#30D158';
+    if (score >= 50) return '#FFCC00';
+    if (score >= 35) return '#FF9500';
+    return '#FF3B30';
   };
 
   const getReadinessLevel = (score: number): string => {
@@ -92,6 +110,39 @@ export default function HomeScreen() {
   const recoveryScore = metrics?.recoveryEfficiency ?? 0;
   const sleepScore = ((metrics?.sleepDuration ?? 7) / 8) * 100;
   const strainScore = 100 - (metrics?.loadScore ?? 0);
+
+  // Check if we need to show empty states
+  if (!hasPermission) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <EmptyDataView
+          icon="favorite-border"
+          iosIcon="heart.text.square"
+          title="Connect Apple Health"
+          message="Grant access to see your metrics"
+          actionTitle="Grant Permission"
+          action={handleRequestPermission}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  if (!loading && !metrics) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <EmptyDataView
+          icon="refresh"
+          iosIcon="arrow.clockwise"
+          title="No Data Yet"
+          message="Sync to see metrics"
+          actionTitle="Sync Now"
+          action={handleSync}
+        />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -390,22 +441,6 @@ export default function HomeScreen() {
                 </View>
               </View>
             )}
-
-            {/* No Data State */}
-            {!metrics && (
-              <View style={styles.noDataContainer}>
-                <IconSymbol
-                  ios_icon_name="heart.text.square"
-                  android_material_icon_name="favorite-border"
-                  size={64}
-                  color={colors.textSecondary}
-                />
-                <Text style={styles.noDataTitle}>No Data Available</Text>
-                <Text style={styles.noDataText}>
-                  Pull down to sync your health data from HealthKit
-                </Text>
-              </View>
-            )}
           </>
         )}
       </ScrollView>
@@ -642,24 +677,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.primary,
     marginRight: 4,
-  },
-  noDataContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 100,
-    paddingHorizontal: 40,
-  },
-  noDataTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  noDataText: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 24,
   },
 });

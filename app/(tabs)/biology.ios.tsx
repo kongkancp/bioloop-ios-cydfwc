@@ -2,6 +2,13 @@
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { Stack } from 'expo-router';
+import { getPerformancePercentage, calculateAge } from '@/utils/baselines';
+import {
+  getAgeGapColor,
+  getAgeGapEmoji,
+  getAgeGapMessage,
+} from '@/utils/bioAge';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   View,
   Text,
@@ -9,17 +16,11 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import React from 'react';
-import { useDailySync } from '@/hooks/useDailySync';
-import { getPerformancePercentage, calculateAge } from '@/utils/baselines';
-import {
-  getAgeGapColor,
-  getAgeGapEmoji,
-  getAgeGapMessage,
-} from '@/utils/bioAge';
 import Svg, { Circle } from 'react-native-svg';
-import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useMemo } from 'react';
+import { useDailySync } from '@/hooks/useDailySync';
+import InsufficientDataBanner from '@/components/InsufficientDataBanner';
 
 const styles = StyleSheet.create({
   container: {
@@ -46,7 +47,6 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 24,
   },
-  // BioAge Hero Card
   bioAgeHero: {
     borderRadius: 22,
     padding: 24,
@@ -99,7 +99,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
   },
-  // Longevity Card
   longevityCard: {
     backgroundColor: colors.cardBackground,
     borderRadius: 16,
@@ -133,7 +132,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
   },
-  // Standard Card
   card: {
     backgroundColor: colors.cardBackground,
     borderRadius: 16,
@@ -252,8 +250,23 @@ function BiologyScreen() {
     });
   };
 
+  // Calculate missing metrics
+  const missingMetrics = useMemo(() => {
+    const missing: string[] = [];
+    
+    if (!metrics?.hrv) {
+      missing.push('HRV');
+    }
+    
+    if (!metrics?.vo2max) {
+      missing.push('VO2 Max');
+    }
+    
+    return missing;
+  }, [metrics]);
+
   // Calculate chronological age and age gap
-  const chronologicalAge = baselines ? calculateAge(new Date(Date.now() - (365 * 24 * 60 * 60 * 1000 * 35))) : 35; // Default to 35 if no DOB
+  const chronologicalAge = baselines ? calculateAge(new Date(Date.now() - (365 * 24 * 60 * 60 * 1000 * 35))) : 35;
   const bioAge = metrics?.bioAgeSmoothed ?? metrics?.bioAge ?? chronologicalAge;
   const ageGap = bioAge - chronologicalAge;
   const longevityScore = metrics?.longevityScore ?? 85;
@@ -305,6 +318,11 @@ function BiologyScreen() {
           <Text style={styles.title}>Biology</Text>
           <Text style={styles.subtitle}>Your biological age and health metrics</Text>
         </View>
+
+        {/* Insufficient Data Banner */}
+        {missingMetrics.length > 0 && (
+          <InsufficientDataBanner missing={missingMetrics} />
+        )}
 
         {/* BioAge Hero Card */}
         <LinearGradient
