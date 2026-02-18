@@ -22,6 +22,7 @@ export interface DailyMetrics {
   dailyLoad?: number; // Raw load value for ACWR calculation
   acwr?: number; // Acute to Chronic Workload Ratio
   acwrScore?: number; // ACWR converted to 0-100 score
+  recoveryEfficiency?: number; // 0-100 cardiovascular recovery score
 }
 
 export interface WorkoutSession {
@@ -29,7 +30,7 @@ export interface WorkoutSession {
   duration: number; // minutes
   averageHR: number;
   peakHR: number;
-  hrAfter60s?: number;
+  hrAfter60s?: number; // Heart rate 60-90 seconds after workout ends
   type: string;
 }
 

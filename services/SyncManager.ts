@@ -8,6 +8,7 @@ import { validateAndClamp } from '@/utils/validation';
 import { calculateBaselines, calculateAge } from '@/utils/baselines';
 import { calculateLoadScore } from '@/utils/loadScore';
 import { calculateACWR, canCalculateACWR } from '@/utils/acwr';
+import { calculateRecoveryEfficiency } from '@/utils/recoveryEfficiency';
 import { startOfDay, isSameDay, subDays } from 'date-fns';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -267,6 +268,99 @@ class SyncManager {
   }
 
   /**
+   * Fetch historical HRV values for Recovery Efficiency calculation
+   * @param days - Number of days to fetch (typically 7)
+   * @returns Array of HRV values
+   */
+  private async getHistoricalHRV(days: number): Promise<number[]> {
+    console.log('SyncManager: Fetching historical HRV for', days, 'days');
+    
+    const hrvValues: number[] = [];
+    const today = new Date();
+    
+    for (let i = 1; i <= days; i++) {
+      const date = subDays(today, i);
+      const metrics = await this.loadMetricsForDate(date);
+      
+      if (metrics && metrics.hrv !== undefined) {
+        hrvValues.push(metrics.hrv);
+      }
+    }
+    
+    console.log('SyncManager: Fetched', hrvValues.length, 'historical HRV values');
+    return hrvValues;
+  }
+
+  /**
+   * Calculate average of an array of numbers
+   */
+  private average(values: number[]): number {
+    if (values.length === 0) return 0;
+    return values.reduce((a, b) => a + b, 0) / values.length;
+  }
+
+  /**
+   * Calculate Recovery Efficiency for metrics
+   * Uses most recent workout's HRR and HRV rebound
+   */
+  private async calculateMetricsRecoveryEfficiency(metrics: DailyMetrics): Promise<DailyMetrics> {
+    console.log('SyncManager: Calculating Recovery Efficiency');
+    
+    try {
+      // Get most recent workout with hrAfter60s data
+      const workoutWithRecovery = metrics.workouts
+        .filter(w => w.hrAfter60s !== undefined)
+        .sort((a, b) => b.startTime.getTime() - a.startTime.getTime())[0];
+      
+      let peakHR: number | undefined;
+      let hrAfter60s: number | undefined;
+      
+      if (workoutWithRecovery) {
+        peakHR = workoutWithRecovery.peakHR;
+        hrAfter60s = workoutWithRecovery.hrAfter60s;
+        console.log('SyncManager: Found workout with recovery data - Peak HR:', peakHR, 'HR after 60s:', hrAfter60s);
+      } else {
+        console.log('SyncManager: No workout with hrAfter60s data found');
+      }
+      
+      // Get today's HRV and 7-day average
+      const todayHRV = metrics.hrv;
+      let avgHRV: number | undefined;
+      
+      if (todayHRV !== undefined) {
+        const historicalHRV = await this.getHistoricalHRV(7);
+        
+        if (historicalHRV.length > 0) {
+          avgHRV = this.average(historicalHRV);
+          console.log('SyncManager: Today HRV:', todayHRV, '7-day avg HRV:', avgHRV);
+        } else {
+          console.log('SyncManager: Insufficient historical HRV data');
+        }
+      } else {
+        console.log('SyncManager: No HRV data for today');
+      }
+      
+      // Calculate Recovery Efficiency
+      const recoveryEfficiency = calculateRecoveryEfficiency(
+        peakHR,
+        hrAfter60s,
+        todayHRV,
+        avgHRV
+      );
+      
+      console.log('SyncManager: Recovery Efficiency calculated:', recoveryEfficiency);
+      
+      return {
+        ...metrics,
+        recoveryEfficiency,
+      };
+    } catch (error) {
+      console.error('SyncManager: Error calculating Recovery Efficiency', error);
+      return metrics;
+    }
+  }
+
+  /**
    * Main sync method - fetches, validates, and saves daily metrics
    * Returns early if already synced today
    * Calculates baselines on first sync if not already calculated
@@ -326,9 +420,13 @@ class SyncManager {
       console.log('SyncManager: Calculating ACWR');
       const metricsWithACWR = await this.calculateMetricsACWR(metricsWithLoad);
       
+      // Calculate Recovery Efficiency
+      console.log('SyncManager: Calculating Recovery Efficiency');
+      const metricsWithRecovery = await this.calculateMetricsRecoveryEfficiency(metricsWithACWR);
+      
       // Save to local storage
       console.log('SyncManager: Saving metrics to storage');
-      await this.saveToStorage(metricsWithACWR);
+      await this.saveToStorage(metricsWithRecovery);
       
       // Update last sync date
       await this.saveLastSyncDate(today);
@@ -338,7 +436,7 @@ class SyncManager {
       return {
         success: true,
         message: 'Data updated',
-        metrics: metricsWithACWR,
+        metrics: metricsWithRecovery,
         baselines: calculatedBaselines,
       };
     } catch (error) {

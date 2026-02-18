@@ -16,6 +16,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDailySync } from '@/hooks/useDailySync';
 import { getLoadInterpretation, getLoadColor } from '@/utils/loadScore';
 import { getACWRInterpretation, getACWRColor } from '@/utils/acwr';
+import { 
+  getRecoveryEfficiencyInterpretation, 
+  getRecoveryEfficiencyColor,
+  getRecoveryEfficiencyMessage 
+} from '@/utils/recoveryEfficiency';
 
 export default function ActivityScreen() {
   const { metrics, baselines, loading } = useDailySync();
@@ -33,9 +38,16 @@ export default function ActivityScreen() {
   const acwrInterpretation = hasACWR ? getACWRInterpretation(acwr!, acwrScore!) : null;
   const acwrColorValue = hasACWR ? getACWRColor(acwrScore!) : colors.textSecondary;
 
+  const recoveryEfficiency = metrics?.recoveryEfficiency;
+  const hasRecoveryEfficiency = recoveryEfficiency !== undefined;
+  const recoveryInterpretation = hasRecoveryEfficiency ? getRecoveryEfficiencyInterpretation(recoveryEfficiency!) : '';
+  const recoveryColorValue = hasRecoveryEfficiency ? getRecoveryEfficiencyColor(recoveryEfficiency!) : colors.textSecondary;
+  const recoveryMessage = hasRecoveryEfficiency ? getRecoveryEfficiencyMessage(recoveryEfficiency!) : '';
+
   const loadScoreDisplay = loadScore.toFixed(0);
   const acwrDisplay = hasACWR ? acwr!.toFixed(2) : '--';
   const acwrScoreDisplay = hasACWR ? acwrScore!.toFixed(0) : '--';
+  const recoveryDisplay = hasRecoveryEfficiency ? recoveryEfficiency!.toFixed(0) : '--';
   const hasWorkouts = workoutCount > 0;
 
   return (
@@ -51,7 +63,7 @@ export default function ActivityScreen() {
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.headerTitle}>Activity</Text>
-            <Text style={styles.headerSubtitle}>Training load and workouts</Text>
+            <Text style={styles.headerSubtitle}>Training load and recovery</Text>
           </View>
 
           {/* Period Selector */}
@@ -88,6 +100,63 @@ export default function ActivityScreen() {
             </View>
           ) : (
             <>
+              {/* Recovery Efficiency Card */}
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <IconSymbol
+                    ios_icon_name="heart.fill"
+                    android_material_icon_name="favorite"
+                    size={24}
+                    color={recoveryColorValue}
+                  />
+                  <Text style={styles.cardTitle}>Recovery Efficiency</Text>
+                </View>
+
+                {hasRecoveryEfficiency ? (
+                  <>
+                    <View style={styles.recoveryContainer}>
+                      <View style={styles.recoveryCircle}>
+                        <Text style={[styles.recoveryValue, { color: recoveryColorValue }]}>
+                          {recoveryDisplay}
+                        </Text>
+                        <Text style={styles.recoveryMax}>/100</Text>
+                      </View>
+
+                      <View style={styles.recoveryInfo}>
+                        <View style={[styles.recoveryBadge, { backgroundColor: recoveryColorValue + '20' }]}>
+                          <Text style={[styles.recoveryBadgeText, { color: recoveryColorValue }]}>
+                            {recoveryInterpretation}
+                          </Text>
+                        </View>
+                        <Text style={styles.recoveryDescription}>
+                          {recoveryMessage}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Recovery Explanation */}
+                    <View style={styles.explanationBox}>
+                      <Text style={styles.explanationText}>
+                        Recovery Efficiency combines Heart Rate Recovery (70%) and HRV Rebound (30%) to measure cardiovascular recovery.
+                      </Text>
+                    </View>
+                  </>
+                ) : (
+                  <View style={styles.insufficientDataContainer}>
+                    <IconSymbol
+                      ios_icon_name="heart"
+                      android_material_icon_name="favorite-border"
+                      size={48}
+                      color={colors.textSecondary}
+                    />
+                    <Text style={styles.insufficientDataTitle}>Building Recovery Profile</Text>
+                    <Text style={styles.insufficientDataText}>
+                      Recovery Efficiency requires workout data with post-exercise heart rate and HRV history. Keep syncing to unlock this metric.
+                    </Text>
+                  </View>
+                )}
+              </View>
+
               {/* ACWR Card */}
               {hasACWR && (
                 <View style={styles.card}>
@@ -223,6 +292,8 @@ export default function ActivityScreen() {
                       const durationDisplay = `${workout.duration} min`;
                       const avgHRDisplay = `${workout.averageHR} bpm`;
                       const peakHRDisplay = `${workout.peakHR} bpm`;
+                      const hasRecoveryData = workout.hrAfter60s !== undefined;
+                      const hrAfter60sDisplay = hasRecoveryData ? `${workout.hrAfter60s} bpm` : 'N/A';
 
                       return (
                         <View key={index} style={styles.workoutItem}>
@@ -238,6 +309,10 @@ export default function ActivityScreen() {
                             <View style={styles.workoutStat}>
                               <Text style={styles.workoutStatLabel}>Peak HR</Text>
                               <Text style={styles.workoutStatValue}>{peakHRDisplay}</Text>
+                            </View>
+                            <View style={styles.workoutStat}>
+                              <Text style={styles.workoutStatLabel}>HR @ 60s</Text>
+                              <Text style={styles.workoutStatValue}>{hrAfter60sDisplay}</Text>
                             </View>
                           </View>
                         </View>
@@ -259,6 +334,31 @@ export default function ActivityScreen() {
                   </View>
                 )}
               </View>
+
+              {/* Recovery Efficiency Guide */}
+              {hasRecoveryEfficiency && (
+                <View style={styles.card}>
+                  <Text style={styles.cardTitle}>Recovery Efficiency Guide</Text>
+                  <View style={styles.legendList}>
+                    <View style={styles.legendItem}>
+                      <View style={[styles.legendDot, { backgroundColor: '#34C759' }]} />
+                      <Text style={styles.legendText}>80-100: Excellent recovery</Text>
+                    </View>
+                    <View style={styles.legendItem}>
+                      <View style={[styles.legendDot, { backgroundColor: '#FFCC00' }]} />
+                      <Text style={styles.legendText}>60-79: Good recovery</Text>
+                    </View>
+                    <View style={styles.legendItem}>
+                      <View style={[styles.legendDot, { backgroundColor: '#FF9500' }]} />
+                      <Text style={styles.legendText}>40-59: Moderate recovery</Text>
+                    </View>
+                    <View style={styles.legendItem}>
+                      <View style={[styles.legendDot, { backgroundColor: '#FF3B30' }]} />
+                      <Text style={styles.legendText}>0-39: Poor recovery</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
 
               {/* ACWR Guide */}
               {hasACWR && (
@@ -387,6 +487,50 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '600',
     color: colors.text,
+  },
+  recoveryContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 20,
+    marginBottom: 16,
+  },
+  recoveryCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 8,
+    borderColor: colors.primary + '20',
+  },
+  recoveryValue: {
+    fontSize: 48,
+    fontWeight: 'bold',
+  },
+  recoveryMax: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    marginTop: -8,
+  },
+  recoveryInfo: {
+    flex: 1,
+    gap: 8,
+  },
+  recoveryBadge: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  recoveryBadgeText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  recoveryDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 20,
   },
   acwrContainer: {
     gap: 16,
@@ -545,7 +689,7 @@ const styles = StyleSheet.create({
   },
   workoutStats: {
     flexDirection: 'row',
-    gap: 20,
+    gap: 12,
   },
   workoutStat: {
     flex: 1,
