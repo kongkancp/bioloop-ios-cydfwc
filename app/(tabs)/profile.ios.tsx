@@ -11,10 +11,13 @@ import {
   TouchableOpacity,
   Modal,
   Linking,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SubscriptionProduct } from '@/types/subscription';
 import { Stack, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import DataManager from '@/services/DataManager';
 
 const styles = StyleSheet.create({
   container: {
@@ -210,6 +213,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
   },
   modalButtonDeleteText: {
     fontSize: 17,
@@ -222,6 +228,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { isSubscribed } = useSubscription();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleUpgradeToPremium = () => {
     console.log('ProfileScreen: User tapped Upgrade to Premium');
@@ -248,10 +255,40 @@ export default function ProfileScreen() {
     setShowDeleteModal(true);
   };
 
-  const confirmDeleteAllData = () => {
+  const confirmDeleteAllData = async () => {
     console.log('ProfileScreen: User confirmed Delete All Data');
-    setShowDeleteModal(false);
-    // TODO: Implement data deletion logic
+    setIsDeleting(true);
+
+    try {
+      // Delete all local data
+      await DataManager.deleteAllData();
+      
+      setShowDeleteModal(false);
+      setIsDeleting(false);
+
+      // Show success message
+      setTimeout(() => {
+        Alert.alert(
+          'Data Deleted',
+          'All your data has been permanently deleted from BioLoop.',
+          [{ text: 'OK' }]
+        );
+      }, 300);
+
+      console.log('ProfileScreen: Data deletion successful');
+    } catch (error) {
+      console.error('ProfileScreen: Data deletion failed', error);
+      setIsDeleting(false);
+      setShowDeleteModal(false);
+
+      setTimeout(() => {
+        Alert.alert(
+          'Deletion Failed',
+          'There was an error deleting your data. Please try again.',
+          [{ text: 'OK' }]
+        );
+      }, 300);
+    }
   };
 
   const cancelDeleteAllData = () => {
@@ -319,7 +356,11 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.card}>
-          <TouchableOpacity style={[styles.deleteRow, styles.rowLast]} onPress={handleDeleteAllData}>
+          <TouchableOpacity 
+            style={[styles.deleteRow, styles.rowLast]} 
+            onPress={handleDeleteAllData}
+            disabled={isDeleting}
+          >
             <Text style={styles.deleteText}>Delete All Data</Text>
           </TouchableOpacity>
         </View>
@@ -334,10 +375,25 @@ export default function ProfileScreen() {
               This will permanently delete all your health data, metrics, and history from BioLoop. This action cannot be undone.
             </Text>
             <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.modalButtonDelete} onPress={confirmDeleteAllData}>
-                <Text style={styles.modalButtonDeleteText}>Delete All Data</Text>
+              <TouchableOpacity 
+                style={styles.modalButtonDelete} 
+                onPress={confirmDeleteAllData}
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <>
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                    <Text style={styles.modalButtonDeleteText}>Deleting...</Text>
+                  </>
+                ) : (
+                  <Text style={styles.modalButtonDeleteText}>Delete All Data</Text>
+                )}
               </TouchableOpacity>
-              <TouchableOpacity style={styles.modalButtonCancel} onPress={cancelDeleteAllData}>
+              <TouchableOpacity 
+                style={styles.modalButtonCancel} 
+                onPress={cancelDeleteAllData}
+                disabled={isDeleting}
+              >
                 <Text style={styles.modalButtonCancelText}>Cancel</Text>
               </TouchableOpacity>
             </View>
