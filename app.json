@@ -1,4 +1,3 @@
-
 {
   "expo": {
     "name": "BioLoop",
@@ -39,7 +38,7 @@
       "expo-router",
       "expo-web-browser"
     ],
-    "scheme": "bioloop",
+    "scheme": "BioLoop",
     "experiments": {
       "typedRoutes": true
     },

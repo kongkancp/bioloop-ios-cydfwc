@@ -1,7 +1,7 @@
 
 import { colors } from '@/styles/commonStyles';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -10,11 +10,12 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import { IconSymbol } from '@/components/IconSymbol';
 import { Stack } from 'expo-router';
-import HealthKitManager from '@/services/HealthKitManager';
-import { DailyMetrics, HealthMetric } from '@/types/health';
+import { HealthMetric } from '@/types/health';
+import { useDailySync } from '@/hooks/useDailySync';
 
 const styles = StyleSheet.create({
   container: {
@@ -135,38 +136,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  syncStatusText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
 });
 
 export default function HomeScreen() {
-  const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
-  const [metrics, setMetrics] = useState<DailyMetrics | null>(null);
-
-  useEffect(() => {
-    console.log('HomeScreen: Component mounted, loading health data');
-    loadHealthData();
-  }, []);
-
-  const loadHealthData = async () => {
-    try {
-      console.log('HomeScreen: Starting health data load');
-      setLoading(true);
-      const today = new Date();
-      const data = await HealthKitManager.fetchDailyMetrics(today);
-      console.log('HomeScreen: Health data loaded successfully', data);
-      setMetrics(data);
-    } catch (error) {
-      console.error('HomeScreen: Error loading health data', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { metrics, loading, syncing, lastSyncDate, syncNow } = useDailySync(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const handleSync = async () => {
     console.log('HomeScreen: User tapped sync button');
-    setSyncing(true);
-    await loadHealthData();
-    setSyncing(false);
+    const result = await syncNow(true);
+    console.log('HomeScreen: Sync result:', result.message);
+  };
+
+  const handleRefresh = async () => {
+    console.log('HomeScreen: User pulled to refresh');
+    setRefreshing(true);
+    await syncNow(true);
+    setRefreshing(false);
   };
 
   const getHealthMetrics = (): HealthMetric[] => {
@@ -222,6 +214,9 @@ export default function HomeScreen() {
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.syncStatusText, { marginTop: 16 }]}>
+            Syncing HealthKit data...
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -229,11 +224,27 @@ export default function HomeScreen() {
 
   const healthMetrics = getHealthMetrics();
   const greetingText = 'Good morning';
+  
+  const lastSyncText = lastSyncDate
+    ? `Last synced: ${lastSyncDate.toLocaleTimeString()}`
+    : 'Never synced';
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
-      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+            title="Syncing HealthKit data..."
+            titleColor={colors.textSecondary}
+          />
+        }
+      >
         <View style={styles.header}>
           <Text style={styles.greeting}>{greetingText}</Text>
           <Text style={styles.title}>BioLoop</Text>
@@ -245,9 +256,14 @@ export default function HomeScreen() {
           <Text style={styles.performanceSubtext}>{performanceChange} from yesterday</Text>
         </View>
 
+        <Text style={styles.syncStatusText}>{lastSyncText}</Text>
+
         <TouchableOpacity style={styles.syncButton} onPress={handleSync} disabled={syncing}>
           {syncing ? (
-            <ActivityIndicator size="small" color={colors.primary} />
+            <>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={styles.syncButtonText}>Syncing HealthKit data...</Text>
+            </>
           ) : (
             <>
               <IconSymbol ios_icon_name="arrow.clockwise" android_material_icon_name="refresh" size={20} color={colors.primary} />
