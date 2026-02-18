@@ -1,26 +1,50 @@
 
 import React from 'react';
-import { NativeTabs, Icon, Label } from 'expo-router/unstable-native-tabs';
+import { Stack } from 'expo-router';
+import FloatingTabBar, { TabBarItem } from '@/components/FloatingTabBar';
 
 export default function TabLayout() {
+  const tabs: TabBarItem[] = [
+    {
+      name: '(home)',
+      route: '/(tabs)/(home)/',
+      icon: 'home',
+      label: 'Home',
+    },
+    {
+      name: 'activity',
+      route: '/(tabs)/activity',
+      icon: 'bar-chart',
+      label: 'Activity',
+    },
+    {
+      name: 'biology',
+      route: '/(tabs)/biology',
+      icon: 'favorite',
+      label: 'Biology',
+    },
+    {
+      name: 'profile',
+      route: '/(tabs)/profile',
+      icon: 'person',
+      label: 'Profile',
+    },
+  ];
+
   return (
-    <NativeTabs>
-      <NativeTabs.Trigger key="home" name="(home)">
-        <Icon sf="house.fill" />
-        <Label>Home</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger key="activity" name="activity">
-        <Icon sf="chart.bar.fill" />
-        <Label>Activity</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger key="biology" name="biology">
-        <Icon sf="heart.text.square.fill" />
-        <Label>Biology</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger key="profile" name="profile">
-        <Icon sf="person.fill" />
-        <Label>Profile</Label>
-      </NativeTabs.Trigger>
-    </NativeTabs>
+    <>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          animation: 'none',
+        }}
+      >
+        <Stack.Screen key="home" name="(home)" />
+        <Stack.Screen key="activity" name="activity" />
+        <Stack.Screen key="biology" name="biology" />
+        <Stack.Screen key="profile" name="profile" />
+      </Stack>
+      <FloatingTabBar tabs={tabs} />
+    </>
   );
 }
