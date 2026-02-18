@@ -4,15 +4,17 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import SyncManager, { SyncResult } from '@/services/SyncManager';
-import { DailyMetrics } from '@/types/health';
+import { DailyMetrics, Baselines } from '@/types/health';
 
 export interface UseDailySyncResult {
   metrics: DailyMetrics | null;
+  baselines: Baselines | null;
   loading: boolean;
   syncing: boolean;
   lastSyncDate: Date | null;
   syncNow: (force?: boolean) => Promise<SyncResult>;
   loadMetrics: (date: Date) => Promise<void>;
+  setUserDateOfBirth: (dateOfBirth: Date) => Promise<Baselines>;
 }
 
 /**
@@ -21,6 +23,7 @@ export interface UseDailySyncResult {
  */
 export function useDailySync(autoSync: boolean = true): UseDailySyncResult {
   const [metrics, setMetrics] = useState<DailyMetrics | null>(null);
+  const [baselines, setBaselines] = useState<Baselines | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [lastSyncDate, setLastSyncDate] = useState<Date | null>(null);
@@ -33,6 +36,7 @@ export function useDailySync(autoSync: boolean = true): UseDailySyncResult {
       // Get current sync status
       const status = SyncManager.getSyncStatus();
       setLastSyncDate(status.lastSyncDate);
+      setBaselines(status.baselines);
       
       // Load today's metrics if available
       const today = new Date();
@@ -51,6 +55,10 @@ export function useDailySync(autoSync: boolean = true): UseDailySyncResult {
         if (result.success && result.metrics) {
           setMetrics(result.metrics);
           setLastSyncDate(new Date());
+        }
+        
+        if (result.baselines) {
+          setBaselines(result.baselines);
         }
       }
       
@@ -78,6 +86,10 @@ export function useDailySync(autoSync: boolean = true): UseDailySyncResult {
         setLastSyncDate(new Date());
       }
       
+      if (result.baselines) {
+        setBaselines(result.baselines);
+      }
+      
       return result;
     } finally {
       setSyncing(false);
@@ -99,12 +111,26 @@ export function useDailySync(autoSync: boolean = true): UseDailySyncResult {
     }
   }, []);
 
+  /**
+   * Set user's date of birth and calculate baselines
+   */
+  const setUserDateOfBirth = useCallback(async (dateOfBirth: Date): Promise<Baselines> => {
+    console.log('useDailySync: Setting user DOB:', dateOfBirth.toISOString());
+    
+    const calculatedBaselines = await SyncManager.setUserDateOfBirth(dateOfBirth);
+    setBaselines(calculatedBaselines);
+    
+    return calculatedBaselines;
+  }, []);
+
   return {
     metrics,
+    baselines,
     loading,
     syncing,
     lastSyncDate,
     syncNow,
     loadMetrics,
+    setUserDateOfBirth,
   };
 }

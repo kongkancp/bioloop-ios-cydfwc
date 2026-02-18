@@ -2,29 +2,35 @@
 // Daily Sync Manager for BioLoop
 // Handles once-per-day HealthKit data synchronization with validation and persistence
 
-import { DailyMetrics } from '@/types/health';
+import { DailyMetrics, Baselines } from '@/types/health';
 import HealthKitManager from './HealthKitManager';
 import { validateAndClamp } from '@/utils/validation';
+import { calculateBaselines, calculateAge } from '@/utils/baselines';
 import { startOfDay, isSameDay, subDays } from 'date-fns';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const LAST_SYNC_DATE_KEY = '@bioloop_last_sync_date';
 const METRICS_STORAGE_PREFIX = '@bioloop_metrics_';
+const BASELINES_STORAGE_KEY = '@bioloop_baselines';
+const USER_DOB_KEY = '@bioloop_user_dob';
 
 export interface SyncResult {
   success: boolean;
   message: string;
   metrics?: DailyMetrics;
+  baselines?: Baselines;
 }
 
 class SyncManager {
   private static instance: SyncManager;
   private lastSyncDate: Date | null = null;
   private isSyncing: boolean = false;
+  private baselines: Baselines | null = null;
 
   private constructor() {
     console.log('SyncManager: Initializing');
     this.loadLastSyncDate();
+    this.loadBaselines();
   }
 
   public static getInstance(): SyncManager {
@@ -65,6 +71,97 @@ class SyncManager {
   }
 
   /**
+   * Load baselines from persistent storage
+   */
+  private async loadBaselines(): Promise<void> {
+    try {
+      const storedBaselines = await AsyncStorage.getItem(BASELINES_STORAGE_KEY);
+      if (storedBaselines) {
+        const parsed = JSON.parse(storedBaselines);
+        this.baselines = {
+          ...parsed,
+          updatedAt: new Date(parsed.updatedAt),
+        };
+        console.log('SyncManager: Loaded baselines from storage:', this.baselines);
+      } else {
+        console.log('SyncManager: No baselines found in storage');
+      }
+    } catch (error) {
+      console.error('SyncManager: Error loading baselines', error);
+    }
+  }
+
+  /**
+   * Save baselines to persistent storage
+   */
+  private async saveBaselines(baselines: Baselines): Promise<void> {
+    try {
+      const data = JSON.stringify({
+        ...baselines,
+        updatedAt: baselines.updatedAt.toISOString(),
+      });
+      
+      await AsyncStorage.setItem(BASELINES_STORAGE_KEY, data);
+      this.baselines = baselines;
+      console.log('SyncManager: Saved baselines to storage:', baselines);
+    } catch (error) {
+      console.error('SyncManager: Error saving baselines', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Calculate and store baselines based on user's date of birth
+   * This should be called on first sync
+   */
+  private async calculateAndStoreBaselines(dateOfBirth: Date): Promise<Baselines> {
+    console.log('SyncManager: Calculating baselines for DOB:', dateOfBirth.toISOString());
+    
+    const age = calculateAge(dateOfBirth);
+    const baselines = calculateBaselines(age);
+    
+    await this.saveBaselines(baselines);
+    
+    return baselines;
+  }
+
+  /**
+   * Set user's date of birth and recalculate baselines
+   */
+  public async setUserDateOfBirth(dateOfBirth: Date): Promise<Baselines> {
+    console.log('SyncManager: Setting user DOB:', dateOfBirth.toISOString());
+    
+    try {
+      // Save DOB to storage
+      await AsyncStorage.setItem(USER_DOB_KEY, dateOfBirth.toISOString());
+      
+      // Calculate and save baselines
+      const baselines = await this.calculateAndStoreBaselines(dateOfBirth);
+      
+      return baselines;
+    } catch (error) {
+      console.error('SyncManager: Error setting user DOB', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get user's date of birth from storage
+   */
+  private async getUserDateOfBirth(): Promise<Date | null> {
+    try {
+      const storedDOB = await AsyncStorage.getItem(USER_DOB_KEY);
+      if (storedDOB) {
+        return new Date(storedDOB);
+      }
+      return null;
+    } catch (error) {
+      console.error('SyncManager: Error loading user DOB', error);
+      return null;
+    }
+  }
+
+  /**
    * Check if data has already been synced today
    */
   private isSyncedToday(): boolean {
@@ -83,6 +180,7 @@ class SyncManager {
   /**
    * Main sync method - fetches, validates, and saves daily metrics
    * Returns early if already synced today
+   * Calculates baselines on first sync if not already calculated
    */
   public async syncDailyData(force: boolean = false): Promise<SyncResult> {
     // Prevent concurrent syncs
@@ -108,6 +206,19 @@ class SyncManager {
     try {
       console.log('SyncManager: Starting daily data sync...');
       
+      // Calculate baselines on first sync if not already done
+      let calculatedBaselines: Baselines | undefined;
+      if (!this.baselines) {
+        console.log('SyncManager: First sync detected, calculating baselines');
+        
+        const userDOB = await this.getUserDateOfBirth();
+        if (userDOB) {
+          calculatedBaselines = await this.calculateAndStoreBaselines(userDOB);
+        } else {
+          console.warn('SyncManager: User DOB not set, cannot calculate baselines');
+        }
+      }
+      
       const today = new Date();
       
       // Fetch raw metrics from HealthKit
@@ -131,6 +242,7 @@ class SyncManager {
         success: true,
         message: 'Data updated',
         metrics: validatedMetrics,
+        baselines: calculatedBaselines,
       };
     } catch (error) {
       console.error('SyncManager: Daily data sync failed', error);
@@ -205,6 +317,13 @@ class SyncManager {
   }
 
   /**
+   * Get current baselines
+   */
+  public getBaselines(): Baselines | null {
+    return this.baselines;
+  }
+
+  /**
    * Clean up old data (older than 365 days)
    * Should be called on app launch
    */
@@ -259,10 +378,15 @@ class SyncManager {
   /**
    * Get sync status
    */
-  public getSyncStatus(): { lastSyncDate: Date | null; isSyncing: boolean } {
+  public getSyncStatus(): { 
+    lastSyncDate: Date | null; 
+    isSyncing: boolean;
+    baselines: Baselines | null;
+  } {
     return {
       lastSyncDate: this.lastSyncDate,
       isSyncing: this.isSyncing,
+      baselines: this.baselines,
     };
   }
 }

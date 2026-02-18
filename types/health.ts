@@ -29,6 +29,14 @@ export interface WorkoutSession {
   type: string;
 }
 
+export interface Baselines {
+  expectedHRV: number;
+  expectedRHR: number;
+  expectedVO2max: number;
+  hrMax: number;
+  updatedAt: Date;
+}
+
 export interface HealthMetric {
   label: string;
   value: string;
