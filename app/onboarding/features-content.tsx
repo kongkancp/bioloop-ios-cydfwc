@@ -1,52 +1,48 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
-import { Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 
-export default function FeaturesScreen() {
+export default function FeaturesContent() {
   return (
-    <>
-      <Stack.Screen options={{ headerShown: false }} />
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-        <View style={styles.content}>
-          <Text style={styles.title}>What You Get</Text>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <View style={styles.content}>
+        <Text style={styles.title}>What You Get</Text>
 
-          <View style={styles.featuresList}>
-            <FeatureRow
-              icon="show-chart"
-              iosIcon="chart.bar.fill"
-              title="Performance Lab"
-              desc="Track load, ACWR, recovery"
-            />
-            <FeatureRow
-              icon="favorite"
-              iosIcon="heart.text.square.fill"
-              title="BioAge 2.0"
-              desc="Estimate biological age"
-            />
-            <FeatureRow
-              icon="lock"
-              iosIcon="lock.shield.fill"
-              title="Privacy"
-              desc="All data stays on device"
-            />
-            <FeatureRow
-              icon="star"
-              iosIcon="crown.fill"
-              title="Premium"
-              desc="30-day trends, export"
-            />
-          </View>
-
-          <View style={styles.spacer} />
-
-          <Text style={styles.swipeText}>Swipe to continue →</Text>
+        <View style={styles.featuresList}>
+          <FeatureRow
+            icon="show-chart"
+            iosIcon="chart.bar.fill"
+            title="Performance Lab"
+            desc="Track load, ACWR, recovery"
+          />
+          <FeatureRow
+            icon="favorite"
+            iosIcon="heart.text.square.fill"
+            title="BioAge 2.0"
+            desc="Estimate biological age"
+          />
+          <FeatureRow
+            icon="lock"
+            iosIcon="lock.shield.fill"
+            title="Privacy"
+            desc="All data stays on device"
+          />
+          <FeatureRow
+            icon="star"
+            iosIcon="crown.fill"
+            title="Premium"
+            desc="30-day trends, export"
+          />
         </View>
-      </SafeAreaView>
-    </>
+
+        <View style={styles.spacer} />
+
+        <Text style={styles.swipeText}>Swipe to continue →</Text>
+      </View>
+    </SafeAreaView>
   );
 }
 

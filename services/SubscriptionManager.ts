@@ -1,132 +1,58 @@
 
-// SubscriptionManager - StoreKit 2 integration for React Native
-// This is a mock implementation for development. In production, this would use native modules.
+import { Platform } from 'react-native';
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SubscriptionProduct, SubscriptionStatus } from '@/types/subscription';
-
-const SUBSCRIPTION_STATUS_KEY = '@bioloop_subscription_status';
+export interface Product {
+  id: string;
+  displayName: string;
+  displayPrice: string;
+  price: number;
+}
 
 class SubscriptionManager {
-  private static instance: SubscriptionManager;
-  private subscriptionStatus: SubscriptionStatus = {
-    isSubscribed: false,
-    currentSubscription: null,
-  };
-  private listeners: Array<(status: SubscriptionStatus) => void> = [];
+  private isSubscribed: boolean = false;
+  private products: Product[] = [];
 
-  private constructor() {
-    this.loadSubscriptionStatus();
+  async initialize() {
+    console.log('SubscriptionManager: Initializing');
+    // Mock products for now
+    this.products = [
+      {
+        id: 'bioloop_monthly',
+        displayName: 'Monthly Premium',
+        displayPrice: '$4.99',
+        price: 4.99,
+      },
+      {
+        id: 'bioloop_yearly',
+        displayName: 'Yearly Premium',
+        displayPrice: '$39.99',
+        price: 39.99,
+      },
+    ];
   }
 
-  static getInstance(): SubscriptionManager {
-    if (!SubscriptionManager.instance) {
-      SubscriptionManager.instance = new SubscriptionManager();
-    }
-    return SubscriptionManager.instance;
+  async checkSubscriptionStatus(): Promise<boolean> {
+    console.log('SubscriptionManager: Checking subscription status');
+    return this.isSubscribed;
   }
 
-  async loadSubscriptionStatus(): Promise<void> {
-    try {
-      const stored = await AsyncStorage.getItem(SUBSCRIPTION_STATUS_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        this.subscriptionStatus = {
-          ...parsed,
-          expirationDate: parsed.expirationDate ? new Date(parsed.expirationDate) : undefined,
-        };
-        this.notifyListeners();
-      }
-    } catch (error) {
-      console.error('SubscriptionManager: Failed to load subscription status', error);
-    }
+  async getProducts(): Promise<Product[]> {
+    console.log('SubscriptionManager: Getting products');
+    return this.products;
   }
 
-  async saveSubscriptionStatus(): Promise<void> {
-    try {
-      await AsyncStorage.setItem(SUBSCRIPTION_STATUS_KEY, JSON.stringify(this.subscriptionStatus));
-    } catch (error) {
-      console.error('SubscriptionManager: Failed to save subscription status', error);
-    }
+  async purchase(product: Product): Promise<boolean> {
+    console.log('SubscriptionManager: Purchasing product', product.id);
+    // Mock purchase
+    this.isSubscribed = true;
+    return true;
   }
 
-  getSubscriptionStatus(): SubscriptionStatus {
-    return { ...this.subscriptionStatus };
-  }
-
-  isSubscribed(): boolean {
-    return this.subscriptionStatus.isSubscribed;
-  }
-
-  getCurrentSubscription(): SubscriptionProduct | null {
-    return this.subscriptionStatus.currentSubscription;
-  }
-
-  // Mock purchase function - in production, this would call native StoreKit 2 APIs
-  async purchase(productId: SubscriptionProduct): Promise<boolean> {
-    console.log('SubscriptionManager: Initiating purchase for', productId);
-    
-    // Simulate purchase flow
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        // Mock successful purchase
-        const expirationDate = new Date();
-        if (productId === SubscriptionProduct.MONTHLY) {
-          expirationDate.setMonth(expirationDate.getMonth() + 1);
-        } else {
-          expirationDate.setFullYear(expirationDate.getFullYear() + 1);
-        }
-
-        this.subscriptionStatus = {
-          isSubscribed: true,
-          currentSubscription: productId,
-          expirationDate,
-        };
-
-        this.saveSubscriptionStatus();
-        this.notifyListeners();
-        
-        console.log('SubscriptionManager: Purchase successful', productId);
-        resolve(true);
-      }, 1500);
-    });
-  }
-
-  // Mock restore purchases - in production, this would call AppStore.sync()
   async restorePurchases(): Promise<boolean> {
     console.log('SubscriptionManager: Restoring purchases');
-    
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        // Mock restore - check if there's a stored subscription
-        const hasSubscription = this.subscriptionStatus.isSubscribed;
-        console.log('SubscriptionManager: Restore complete', hasSubscription ? 'Found subscription' : 'No subscription found');
-        resolve(hasSubscription);
-      }, 1000);
-    });
-  }
-
-  // Mock cancel subscription
-  async cancelSubscription(): Promise<void> {
-    console.log('SubscriptionManager: Cancelling subscription');
-    this.subscriptionStatus = {
-      isSubscribed: false,
-      currentSubscription: null,
-    };
-    await this.saveSubscriptionStatus();
-    this.notifyListeners();
-  }
-
-  subscribe(listener: (status: SubscriptionStatus) => void): () => void {
-    this.listeners.push(listener);
-    return () => {
-      this.listeners = this.listeners.filter((l) => l !== listener);
-    };
-  }
-
-  private notifyListeners(): void {
-    this.listeners.forEach((listener) => listener(this.getSubscriptionStatus()));
+    // Mock restore
+    return false;
   }
 }
 
-export default SubscriptionManager.getInstance();
+export default new SubscriptionManager();

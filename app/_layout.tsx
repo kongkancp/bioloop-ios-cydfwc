@@ -1,6 +1,6 @@
 
 import "react-native-reanimated";
-import React, { useEffect } from "react";
+import React, { useEffect, useCallback } from "react";
 import { useFonts } from "expo-font";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -54,7 +54,7 @@ function RootLayoutNav() {
     }
   }, [networkState.isConnected, networkState.isInternetReachable]);
 
-  useEffect(() => {
+  const handleNavigation = useCallback(() => {
     if (isLoading || !loaded) {
       return;
     }
@@ -65,12 +65,16 @@ function RootLayoutNav() {
 
     if (!isOnboardingComplete && !inOnboarding) {
       console.log('Redirecting to onboarding');
-      router.replace('/onboarding/welcome');
+      router.replace('/onboarding');
     } else if (isOnboardingComplete && inOnboarding) {
       console.log('Redirecting to main app');
       router.replace('/(tabs)/(home)/');
     }
-  }, [isOnboardingComplete, isLoading, loaded, segments]);
+  }, [isOnboardingComplete, isLoading, loaded, segments, router]);
+
+  useEffect(() => {
+    handleNavigation();
+  }, [handleNavigation]);
 
   if (!loaded || isLoading) {
     return (
@@ -114,8 +118,7 @@ function RootLayoutNav() {
         <WidgetProvider>
           <GestureHandlerRootView>
             <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="onboarding/welcome" />
-              <Stack.Screen name="onboarding/features" />
+              <Stack.Screen name="onboarding/index" />
               <Stack.Screen name="onboarding/privacy" />
               <Stack.Screen name="onboarding/profile-setup" />
               <Stack.Screen name="onboarding/healthkit-permission" />
