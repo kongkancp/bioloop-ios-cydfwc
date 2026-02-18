@@ -1,7 +1,8 @@
 
 import React, { useState, useRef } from 'react';
-import { View, StyleSheet, Dimensions, ScrollView, Platform } from 'react-native';
-import { Stack } from 'expo-router';
+import { View, StyleSheet, Dimensions, ScrollView, Platform, TouchableOpacity, Text } from 'react-native';
+import { Stack, useRouter } from 'expo-router';
+import { colors } from '@/styles/commonStyles';
 import WelcomeContent from './welcome-content';
 import FeaturesContent from './features-content';
 
@@ -10,6 +11,7 @@ const { width } = Dimensions.get('window');
 export default function OnboardingFlow() {
   const [currentPage, setCurrentPage] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
+  const router = useRouter();
 
   const handleScroll = (event: any) => {
     const offsetX = event.nativeEvent.contentOffset.x;
@@ -20,30 +22,46 @@ export default function OnboardingFlow() {
     }
   };
 
+  const handleGetStarted = () => {
+    console.log('User tapped Get Started button');
+    router.push('/onboarding/privacy');
+  };
+
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <ScrollView
-        ref={scrollViewRef}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        style={styles.container}
-      >
-        <View style={styles.page}>
-          <WelcomeContent />
-        </View>
-        <View style={styles.page}>
-          <FeaturesContent />
-        </View>
-      </ScrollView>
+      <View style={styles.container}>
+        <ScrollView
+          ref={scrollViewRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          style={styles.scrollView}
+        >
+          <View style={styles.page}>
+            <WelcomeContent />
+          </View>
+          <View style={styles.page}>
+            <FeaturesContent />
+          </View>
+        </ScrollView>
 
-      {/* Page indicator dots */}
-      <View style={styles.pageIndicator}>
-        <View style={[styles.dot, currentPage === 0 && styles.activeDot]} />
-        <View style={[styles.dot, currentPage === 1 && styles.activeDot]} />
+        {/* Page indicator dots */}
+        <View style={styles.pageIndicator}>
+          <View style={[styles.dot, currentPage === 0 && styles.activeDot]} />
+          <View style={[styles.dot, currentPage === 1 && styles.activeDot]} />
+        </View>
+
+        {/* Get Started Button (only on last page) */}
+        {currentPage === 1 && (
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity style={styles.getStartedButton} onPress={handleGetStarted}>
+              <Text style={styles.getStartedButtonText}>Get Started</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     </>
   );
@@ -52,6 +70,10 @@ export default function OnboardingFlow() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.background,
+  },
+  scrollView: {
+    flex: 1,
   },
   page: {
     width: width,
@@ -59,7 +81,7 @@ const styles = StyleSheet.create({
   },
   pageIndicator: {
     position: 'absolute',
-    bottom: Platform.OS === 'android' ? 60 : 80,
+    bottom: Platform.OS === 'android' ? 140 : 160,
     left: 0,
     right: 0,
     flexDirection: 'row',
@@ -75,5 +97,23 @@ const styles = StyleSheet.create({
   activeDot: {
     backgroundColor: '#0066FF',
     width: 24,
+  },
+  buttonContainer: {
+    position: 'absolute',
+    bottom: Platform.OS === 'android' ? 60 : 80,
+    left: 32,
+    right: 32,
+  },
+  getStartedButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  getStartedButtonText: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });

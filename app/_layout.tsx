@@ -118,12 +118,10 @@ function RootLayoutNav() {
         <WidgetProvider>
           <GestureHandlerRootView>
             <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="onboarding/index" />
-              <Stack.Screen name="onboarding/privacy" />
-              <Stack.Screen name="onboarding/profile-setup" />
-              <Stack.Screen name="onboarding/healthkit-permission" />
+              <Stack.Screen name="onboarding" />
               <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="subscription" />
+              <Stack.Screen name="subscription" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="+not-found" />
             </Stack>
             <SystemBars style={"auto"} />
           </GestureHandlerRootView>

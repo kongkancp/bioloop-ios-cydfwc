@@ -1,8 +1,11 @@
 
 import { colors } from '@/styles/commonStyles';
+import { useDailySync } from '@/hooks/useDailySync';
 import { IconSymbol } from '@/components/IconSymbol';
 import { Stack } from 'expo-router';
 import React, { useState } from 'react';
+import Svg, { Circle } from 'react-native-svg';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   View,
   Text,
@@ -12,9 +15,6 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useDailySync } from '@/hooks/useDailySync';
-import Svg, { Circle } from 'react-native-svg';
 
 export default function HomeScreen() {
   const { metrics, baselines, loading, syncing, syncNow } = useDailySync();
@@ -48,11 +48,11 @@ export default function HomeScreen() {
 
   // Get readiness color
   const getReadinessColor = (score: number): string => {
-    if (score >= 80) return '#34C759'; // Green
-    if (score >= 65) return '#30D158'; // Light green
-    if (score >= 50) return '#FFCC00'; // Yellow
-    if (score >= 35) return '#FF9500'; // Orange
-    return '#FF3B30'; // Red
+    if (score >= 80) return '#34C759';
+    if (score >= 65) return '#30D158';
+    if (score >= 50) return '#FFCC00';
+    if (score >= 35) return '#FF9500';
+    return '#FF3B30';
   };
 
   const getReadinessLevel = (score: number): string => {

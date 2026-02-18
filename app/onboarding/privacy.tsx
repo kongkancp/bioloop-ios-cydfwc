@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Platform, TouchableOpacity } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/styles/commonStyles';
@@ -8,6 +8,16 @@ import { IconSymbol } from '@/components/IconSymbol';
 
 export default function PrivacyScreen() {
   const router = useRouter();
+
+  const handleContinue = () => {
+    console.log('User tapped Continue from Privacy screen');
+    router.push('/onboarding/profile-setup');
+  };
+
+  const handleBack = () => {
+    console.log('User tapped Back from Privacy screen');
+    router.back();
+  };
 
   return (
     <>
@@ -55,8 +65,15 @@ export default function PrivacyScreen() {
             {/* Spacer */}
             <View style={styles.spacer} />
 
-            {/* Swipe Instruction */}
-            <Text style={styles.swipeText}>Swipe to set up profile →</Text>
+            {/* Buttons */}
+            <View style={styles.buttonsContainer}>
+              <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+                <Text style={styles.backButtonText}>Back</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.continueButton} onPress={handleContinue}>
+                <Text style={styles.continueButtonText}>Continue</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -120,6 +137,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
+    backgroundColor: colors.backgroundAlt,
+    padding: 16,
+    borderRadius: 12,
   },
   iconWrapper: {
     width: 40,
@@ -137,10 +157,36 @@ const styles = StyleSheet.create({
   spacer: {
     flex: 1,
   },
-  swipeText: {
-    fontSize: 13,
-    color: colors.textSecondary,
+  buttonsContainer: {
+    width: '100%',
+    flexDirection: 'row',
+    gap: 12,
     marginBottom: 40,
-    textAlign: 'center',
+  },
+  backButton: {
+    flex: 1,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.backgroundAlt,
+  },
+  backButtonText: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  continueButton: {
+    flex: 2,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+  },
+  continueButtonText: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });
