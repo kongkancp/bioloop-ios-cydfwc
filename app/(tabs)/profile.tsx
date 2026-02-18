@@ -12,7 +12,9 @@ import {
   Modal,
 } from 'react-native';
 import { IconSymbol } from '@/components/IconSymbol';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
+import { useSubscription } from '@/hooks/useSubscription';
+import { SubscriptionProduct } from '@/types/subscription';
 
 const styles = StyleSheet.create({
   container: {
@@ -51,6 +53,62 @@ const styles = StyleSheet.create({
   email: {
     fontSize: 15,
     color: colors.textSecondary,
+  },
+  premiumBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  premiumBadgeText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginLeft: 6,
+  },
+  subscriptionCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  subscriptionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  subscriptionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginLeft: 12,
+  },
+  subscriptionText: {
+    fontSize: 15,
+    color: colors.textSecondary,
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  upgradeButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    padding: 14,
+    alignItems: 'center',
+  },
+  upgradeButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   sectionTitle: {
     fontSize: 20,
@@ -174,6 +232,8 @@ const styles = StyleSheet.create({
 });
 
 export default function ProfileScreen() {
+  const router = useRouter();
+  const { isSubscribed, currentSubscription } = useSubscription();
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
 
   const handleEditProfile = () => {
@@ -189,6 +249,11 @@ export default function ProfileScreen() {
     console.log('ProfileScreen: User tapped Export Data');
   };
 
+  const handleUpgradeToPremium = () => {
+    console.log('ProfileScreen: User tapped Upgrade to Premium');
+    router.push('/subscription');
+  };
+
   const closeModal = () => {
     setShowPermissionsModal(false);
   };
@@ -200,6 +265,9 @@ export default function ProfileScreen() {
   const height = '180 cm';
   const weight = '75 kg';
 
+  const subscriptionActive = isSubscribed;
+  const subscriptionPlanName = currentSubscription === SubscriptionProduct.MONTHLY ? 'Monthly' : 'Annual';
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -210,7 +278,43 @@ export default function ProfileScreen() {
           </View>
           <Text style={styles.name}>{userName}</Text>
           <Text style={styles.email}>{userEmail}</Text>
+          {subscriptionActive && (
+            <View style={styles.premiumBadge}>
+              <IconSymbol ios_icon_name="star.fill" android_material_icon_name="star" size={14} color="#FFFFFF" />
+              <Text style={styles.premiumBadgeText}>Premium Member</Text>
+            </View>
+          )}
         </View>
+
+        {!subscriptionActive && (
+          <View style={styles.subscriptionCard}>
+            <View style={styles.subscriptionHeader}>
+              <IconSymbol ios_icon_name="star.fill" android_material_icon_name="star" size={24} color={colors.primary} />
+              <Text style={styles.subscriptionTitle}>Upgrade to Premium</Text>
+            </View>
+            <Text style={styles.subscriptionText}>
+              Unlock unlimited history, advanced analytics, and export your data. Start your premium experience today!
+            </Text>
+            <TouchableOpacity style={styles.upgradeButton} onPress={handleUpgradeToPremium}>
+              <Text style={styles.upgradeButtonText}>View Plans</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {subscriptionActive && (
+          <View style={styles.subscriptionCard}>
+            <View style={styles.subscriptionHeader}>
+              <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check-circle" size={24} color="#34C759" />
+              <Text style={styles.subscriptionTitle}>Premium Active</Text>
+            </View>
+            <Text style={styles.subscriptionText}>
+              You have full access to all premium features. Current plan: {subscriptionPlanName}
+            </Text>
+            <TouchableOpacity style={styles.upgradeButton} onPress={handleUpgradeToPremium}>
+              <Text style={styles.upgradeButtonText}>Manage Subscription</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         <Text style={styles.sectionTitle}>Personal Information</Text>
         <View style={styles.infoCard}>
