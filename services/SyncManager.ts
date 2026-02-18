@@ -7,6 +7,7 @@ import HealthKitManager from './HealthKitManager';
 import { validateAndClamp } from '@/utils/validation';
 import { calculateBaselines, calculateAge } from '@/utils/baselines';
 import { calculateLoadScore } from '@/utils/loadScore';
+import { calculateACWR, canCalculateACWR } from '@/utils/acwr';
 import { startOfDay, isSameDay, subDays } from 'date-fns';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -203,6 +204,69 @@ class SyncManager {
   }
 
   /**
+   * Fetch historical daily load values for ACWR calculation
+   * @param days - Number of days to fetch (typically 28)
+   * @returns Array of daily load values
+   */
+  private async getHistoricalDailyLoads(days: number): Promise<number[]> {
+    console.log('SyncManager: Fetching historical loads for', days, 'days');
+    
+    const loads: number[] = [];
+    const today = new Date();
+    
+    for (let i = 0; i < days; i++) {
+      const date = subDays(today, i);
+      const metrics = await this.loadMetricsForDate(date);
+      
+      if (metrics && metrics.dailyLoad !== undefined) {
+        loads.unshift(metrics.dailyLoad); // Add to beginning to maintain chronological order
+      } else {
+        loads.unshift(0); // Use 0 for missing days
+      }
+    }
+    
+    console.log('SyncManager: Fetched', loads.length, 'historical load values');
+    return loads;
+  }
+
+  /**
+   * Calculate ACWR for metrics
+   * Requires at least 21 days of historical data
+   */
+  private async calculateMetricsACWR(metrics: DailyMetrics): Promise<DailyMetrics> {
+    console.log('SyncManager: Calculating ACWR');
+    
+    try {
+      // Fetch historical loads for the last 28 days
+      const historicalLoads = await this.getHistoricalDailyLoads(28);
+      
+      // Check if we have sufficient data
+      if (!canCalculateACWR(historicalLoads)) {
+        console.log('SyncManager: Insufficient data for ACWR calculation');
+        return metrics;
+      }
+      
+      // Extract last 7 days and last 28 days
+      const last7DaysLoad = historicalLoads.slice(-7);
+      const last28DaysLoad = historicalLoads;
+      
+      // Calculate ACWR
+      const { acwr, acwrScore } = calculateACWR(last7DaysLoad, last28DaysLoad);
+      
+      console.log('SyncManager: ACWR calculated - ratio:', acwr, 'score:', acwrScore);
+      
+      return {
+        ...metrics,
+        acwr,
+        acwrScore,
+      };
+    } catch (error) {
+      console.error('SyncManager: Error calculating ACWR', error);
+      return metrics;
+    }
+  }
+
+  /**
    * Main sync method - fetches, validates, and saves daily metrics
    * Returns early if already synced today
    * Calculates baselines on first sync if not already calculated
@@ -258,9 +322,13 @@ class SyncManager {
       console.log('SyncManager: Calculating Load Score');
       const metricsWithLoad = this.calculateMetricsLoadScore(validatedMetrics);
       
+      // Calculate ACWR
+      console.log('SyncManager: Calculating ACWR');
+      const metricsWithACWR = await this.calculateMetricsACWR(metricsWithLoad);
+      
       // Save to local storage
       console.log('SyncManager: Saving metrics to storage');
-      await this.saveToStorage(metricsWithLoad);
+      await this.saveToStorage(metricsWithACWR);
       
       // Update last sync date
       await this.saveLastSyncDate(today);
@@ -270,7 +338,7 @@ class SyncManager {
       return {
         success: true,
         message: 'Data updated',
-        metrics: metricsWithLoad,
+        metrics: metricsWithACWR,
         baselines: calculatedBaselines,
       };
     } catch (error) {
@@ -323,7 +391,6 @@ class SyncManager {
       
       const data = await AsyncStorage.getItem(storageKey);
       if (!data) {
-        console.log('SyncManager: No metrics found for', dateKey);
         return null;
       }
       

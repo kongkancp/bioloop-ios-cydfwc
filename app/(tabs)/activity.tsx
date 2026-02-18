@@ -15,6 +15,7 @@ import { Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDailySync } from '@/hooks/useDailySync';
 import { getLoadInterpretation, getLoadColor } from '@/utils/loadScore';
+import { getACWRInterpretation, getACWRColor } from '@/utils/acwr';
 
 export default function ActivityScreen() {
   const { metrics, baselines, loading } = useDailySync();
@@ -25,7 +26,16 @@ export default function ActivityScreen() {
   const loadColorValue = getLoadColor(loadScore);
   const workoutCount = metrics?.workouts?.length || 0;
 
+  const acwr = metrics?.acwr;
+  const acwrScore = metrics?.acwrScore;
+  const hasACWR = acwr !== undefined && acwrScore !== undefined;
+  
+  const acwrInterpretation = hasACWR ? getACWRInterpretation(acwr!, acwrScore!) : null;
+  const acwrColorValue = hasACWR ? getACWRColor(acwrScore!) : colors.textSecondary;
+
   const loadScoreDisplay = loadScore.toFixed(0);
+  const acwrDisplay = hasACWR ? acwr!.toFixed(2) : '--';
+  const acwrScoreDisplay = hasACWR ? acwrScore!.toFixed(0) : '--';
   const hasWorkouts = workoutCount > 0;
 
   return (
@@ -78,6 +88,81 @@ export default function ActivityScreen() {
             </View>
           ) : (
             <>
+              {/* ACWR Card */}
+              {hasACWR && (
+                <View style={styles.card}>
+                  <View style={styles.cardHeader}>
+                    <IconSymbol
+                      ios_icon_name="chart.line.uptrend.xyaxis"
+                      android_material_icon_name="trending-up"
+                      size={24}
+                      color={acwrColorValue}
+                    />
+                    <Text style={styles.cardTitle}>Training Balance</Text>
+                  </View>
+
+                  <View style={styles.acwrContainer}>
+                    <View style={styles.acwrMainMetric}>
+                      <Text style={styles.acwrLabel}>ACWR Ratio</Text>
+                      <Text style={[styles.acwrValue, { color: acwrColorValue }]}>
+                        {acwrDisplay}
+                      </Text>
+                      <Text style={styles.acwrOptimal}>Optimal: 0.8-1.3</Text>
+                    </View>
+
+                    <View style={styles.acwrScoreContainer}>
+                      <View style={[styles.acwrScoreBadge, { backgroundColor: acwrColorValue + '20' }]}>
+                        <Text style={[styles.acwrScoreBadgeText, { color: acwrColorValue }]}>
+                          {acwrInterpretation!.risk}
+                        </Text>
+                      </View>
+                      <Text style={styles.acwrMessage}>{acwrInterpretation!.message}</Text>
+                      <View style={styles.acwrScoreRow}>
+                        <Text style={styles.acwrScoreLabel}>Score:</Text>
+                        <Text style={[styles.acwrScoreValue, { color: acwrColorValue }]}>
+                          {acwrScoreDisplay}
+                        </Text>
+                        <Text style={styles.acwrScoreMax}>/100</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* ACWR Explanation */}
+                  <View style={styles.explanationBox}>
+                    <Text style={styles.explanationText}>
+                      ACWR compares your 7-day training load to your 28-day average. Values between 0.8-1.3 indicate optimal training progression.
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Insufficient Data Message */}
+              {!hasACWR && (
+                <View style={styles.card}>
+                  <View style={styles.cardHeader}>
+                    <IconSymbol
+                      ios_icon_name="chart.line.uptrend.xyaxis"
+                      android_material_icon_name="trending-up"
+                      size={24}
+                      color={colors.textSecondary}
+                    />
+                    <Text style={styles.cardTitle}>Training Balance</Text>
+                  </View>
+                  <View style={styles.insufficientDataContainer}>
+                    <IconSymbol
+                      ios_icon_name="calendar"
+                      android_material_icon_name="calendar-today"
+                      size={48}
+                      color={colors.textSecondary}
+                    />
+                    <Text style={styles.insufficientDataTitle}>Building Your Profile</Text>
+                    <Text style={styles.insufficientDataText}>
+                      ACWR requires 21+ days of training data. Keep syncing your workouts to unlock this metric.
+                    </Text>
+                  </View>
+                </View>
+              )}
+
               {/* Load Score Card */}
               <View style={styles.card}>
                 <View style={styles.cardHeader}>
@@ -174,6 +259,27 @@ export default function ActivityScreen() {
                   </View>
                 )}
               </View>
+
+              {/* ACWR Guide */}
+              {hasACWR && (
+                <View style={styles.card}>
+                  <Text style={styles.cardTitle}>ACWR Guide</Text>
+                  <View style={styles.legendList}>
+                    <View style={styles.legendItem}>
+                      <View style={[styles.legendDot, { backgroundColor: '#34C759' }]} />
+                      <Text style={styles.legendText}>0.8-1.3: Optimal training balance</Text>
+                    </View>
+                    <View style={styles.legendItem}>
+                      <View style={[styles.legendDot, { backgroundColor: '#FFCC00' }]} />
+                      <Text style={styles.legendText}>&lt;0.8 or &gt;1.3: Caution zone</Text>
+                    </View>
+                    <View style={styles.legendItem}>
+                      <View style={[styles.legendDot, { backgroundColor: '#FF3B30' }]} />
+                      <Text style={styles.legendText}>&gt;1.5: High injury risk</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
 
               {/* Load Score Legend */}
               <View style={styles.card}>
@@ -281,6 +387,83 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '600',
     color: colors.text,
+  },
+  acwrContainer: {
+    gap: 16,
+    marginBottom: 16,
+  },
+  acwrMainMetric: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    backgroundColor: colors.background,
+    borderRadius: 12,
+  },
+  acwrLabel: {
+    fontSize: 15,
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
+  acwrValue: {
+    fontSize: 56,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  acwrOptimal: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  acwrScoreContainer: {
+    gap: 8,
+  },
+  acwrScoreBadge: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  acwrScoreBadgeText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  acwrMessage: {
+    fontSize: 15,
+    color: colors.text,
+    lineHeight: 20,
+  },
+  acwrScoreRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+  },
+  acwrScoreLabel: {
+    fontSize: 15,
+    color: colors.textSecondary,
+  },
+  acwrScoreValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  acwrScoreMax: {
+    fontSize: 15,
+    color: colors.textSecondary,
+  },
+  insufficientDataContainer: {
+    alignItems: 'center',
+    paddingVertical: 32,
+  },
+  insufficientDataTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: colors.text,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  insufficientDataText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+    lineHeight: 20,
   },
   loadScoreContainer: {
     flexDirection: 'row',

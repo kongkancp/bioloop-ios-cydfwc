@@ -20,6 +20,8 @@ export interface DailyMetrics {
   computedAt: Date;
   loadScore?: number; // 0-100 training stress score
   dailyLoad?: number; // Raw load value for ACWR calculation
+  acwr?: number; // Acute to Chronic Workload Ratio
+  acwrScore?: number; // ACWR converted to 0-100 score
 }
 
 export interface WorkoutSession {
