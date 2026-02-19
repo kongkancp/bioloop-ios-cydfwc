@@ -8,21 +8,16 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import InsufficientDataBanner from '@/components/InsufficientDataBanner';
+import BioAgeHeroCard from '@/components/BioAgeHeroCard';
 import { colors } from '@/styles/commonStyles';
 import { Stack } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useMemo } from 'react';
-import Svg, { Circle } from 'react-native-svg';
 import {
-  getAgeGapColor,
-  getAgeGapEmoji,
-  getAgeGapMessage,
   calculateBioAgeIndices,
   hasMinimumData,
   calculateRawBioAge,
 } from '@/utils/bioAge';
-import { getPerformancePercentage } from '@/utils/baselines';
 import { calculateAge } from '@/utils/age';
 import { IconSymbol } from '@/components/IconSymbol';
 
@@ -32,11 +27,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   scrollContent: {
-    padding: 20,
     paddingBottom: 100,
   },
   header: {
-    marginBottom: 24,
+    padding: 20,
+    paddingBottom: 16,
   },
   title: {
     fontSize: 32,
@@ -48,53 +43,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textSecondary,
   },
-  bioAgeCard: {
-    borderRadius: 20,
-    padding: 24,
-    marginBottom: 20,
-    overflow: 'hidden',
-  },
-  bioAgeHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  bioAgeLabel: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginBottom: 4,
-  },
-  bioAgeValue: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  bioAgeUnit: {
-    fontSize: 24,
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
-  ageGapContainer: {
-    alignItems: 'flex-end',
-  },
-  ageGapEmoji: {
-    fontSize: 32,
-    marginBottom: 4,
-  },
-  ageGapText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  bioAgeMessage: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
-    lineHeight: 20,
-  },
   componentsCard: {
     backgroundColor: colors.card,
     borderRadius: 16,
     padding: 20,
+    marginHorizontal: 20,
     marginBottom: 20,
   },
   componentsTitle: {
@@ -112,7 +65,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.backgroundSecondary,
+    backgroundColor: colors.backgroundAlt,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -128,7 +81,7 @@ const styles = StyleSheet.create({
   },
   componentBar: {
     height: 6,
-    backgroundColor: colors.backgroundSecondary,
+    backgroundColor: colors.backgroundAlt,
     borderRadius: 3,
     overflow: 'hidden',
   },
@@ -146,6 +99,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderRadius: 16,
     padding: 20,
+    marginHorizontal: 20,
   },
   infoTitle: {
     fontSize: 18,
@@ -178,6 +132,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textSecondary,
     textAlign: 'center',
+    marginTop: 16,
   },
 });
 
@@ -198,7 +153,6 @@ export default function BiologyScreen() {
     }
 
     const bioAge = calculateRawBioAge(chronologicalAge, indices);
-    // FIXED: Age gap = BioAge - Chronological Age (matches Swift implementation)
     const ageGap = bioAge - chronologicalAge;
 
     console.log(`BioAge calculation: Chronological=${chronologicalAge}, Bio=${bioAge.toFixed(1)}, Gap=${ageGap.toFixed(1)}`);
@@ -290,14 +244,6 @@ export default function BiologyScreen() {
   const workoutPercentage = bioAgeData?.indices.workout ?? 0;
   const bmiPercentage = bioAgeData?.indices.bmi ?? 0;
 
-  const ageGapColor = bioAgeData ? getAgeGapColor(bioAgeData.ageGap) : colors.textSecondary;
-  const ageGapEmoji = bioAgeData ? getAgeGapEmoji(bioAgeData.ageGap) : '📊';
-  const ageGapMessage = bioAgeData ? getAgeGapMessage(bioAgeData.ageGap) : '';
-  const bioAgeDisplay = bioAgeData ? bioAgeData.bioAge.toFixed(1) : '--';
-  const ageGapDisplay = bioAgeData
-    ? `${bioAgeData.ageGap >= 0 ? '+' : ''}${bioAgeData.ageGap.toFixed(1)} years`
-    : '--';
-
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <Stack.Screen
@@ -317,27 +263,11 @@ export default function BiologyScreen() {
         )}
 
         {bioAgeData && (
-          <LinearGradient
-            colors={[ageGapColor, ageGapColor + 'CC']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.bioAgeCard}
-          >
-            <View style={styles.bioAgeHeader}>
-              <View>
-                <Text style={styles.bioAgeLabel}>Your Biological Age</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-                  <Text style={styles.bioAgeValue}>{bioAgeDisplay}</Text>
-                  <Text style={styles.bioAgeUnit}> years</Text>
-                </View>
-              </View>
-              <View style={styles.ageGapContainer}>
-                <Text style={styles.ageGapEmoji}>{ageGapEmoji}</Text>
-                <Text style={styles.ageGapText}>{ageGapDisplay}</Text>
-              </View>
-            </View>
-            <Text style={styles.bioAgeMessage}>{ageGapMessage}</Text>
-          </LinearGradient>
+          <BioAgeHeroCard
+            bioAge={bioAgeData.bioAge}
+            chronologicalAge={bioAgeData.chronologicalAge}
+            ageGap={bioAgeData.ageGap}
+          />
         )}
 
         <View style={styles.componentsCard}>
