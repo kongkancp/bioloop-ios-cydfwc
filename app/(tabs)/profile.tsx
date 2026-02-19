@@ -19,15 +19,12 @@ import { colors } from '@/styles/commonStyles';
 import { useSubscription } from '@/hooks/useSubscription';
 import { SubscriptionProduct } from '@/types/subscription';
 import DataManager from '@/services/DataManager';
-import MockHealthDataGenerator from '@/services/MockHealthDataGenerator';
-import SyncManager from '@/services/SyncManager';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { isPremium, isLoading: subscriptionLoading } = useSubscription();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isGeneratingMockData, setIsGeneratingMockData] = useState(false);
 
   const handleEditProfile = () => {
     console.log('ProfileScreen: Navigating to edit profile');
@@ -83,31 +80,6 @@ export default function ProfileScreen() {
   const cancelDeleteAllData = () => {
     console.log('ProfileScreen: Delete cancelled');
     setShowDeleteModal(false);
-  };
-
-  const handleEnableMockData = async () => {
-    console.log('ProfileScreen: Enabling mock data');
-    setIsGeneratingMockData(true);
-
-    try {
-      await MockHealthDataGenerator.setupMockEnvironment();
-      
-      // Trigger a sync to calculate all metrics
-      await SyncManager.performSync();
-      
-      Alert.alert(
-        'Mock Data Enabled',
-        '30 days of realistic health data has been generated. All features are now available!\n\nYou can now:\n• View Performance Index\n• See Activity metrics\n• Check BioAge\n• Explore all features',
-        [{ text: 'OK' }]
-      );
-      
-      console.log('ProfileScreen: Mock data setup complete');
-    } catch (error) {
-      console.error('ProfileScreen: Error setting up mock data:', error);
-      Alert.alert('Error', 'Failed to generate mock data. Please try again.', [{ text: 'OK' }]);
-    } finally {
-      setIsGeneratingMockData(false);
-    }
   };
 
   return (
@@ -200,41 +172,7 @@ export default function ProfileScreen() {
                 color={colors.textSecondary}
               />
             </TouchableOpacity>
-
-            <View style={styles.divider} />
-
-            <TouchableOpacity 
-              style={styles.listItem} 
-              onPress={handleEnableMockData}
-              disabled={isGeneratingMockData}
-            >
-              <IconSymbol
-                ios_icon_name="wand.and.stars"
-                android_material_icon_name="auto-fix-high"
-                size={24}
-                color={colors.primary}
-              />
-              {isGeneratingMockData ? (
-                <>
-                  <ActivityIndicator size="small" color={colors.primary} style={{ marginLeft: 12 }} />
-                  <Text style={[styles.listItemText, { color: colors.primary }]}>Generating...</Text>
-                </>
-              ) : (
-                <>
-                  <Text style={[styles.listItemText, { color: colors.primary }]}>Enable Mock Data</Text>
-                  <IconSymbol
-                    ios_icon_name="chevron.right"
-                    android_material_icon_name="chevron-right"
-                    size={20}
-                    color={colors.primary}
-                  />
-                </>
-              )}
-            </TouchableOpacity>
           </View>
-          <Text style={styles.sectionFooter}>
-            Enable mock data to simulate 30 days of health data and see all features in action
-          </Text>
         </View>
 
         {/* Legal */}
