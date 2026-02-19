@@ -242,6 +242,13 @@ class SyncManager {
     }
   }
 
+  /**
+   * Load user profile from storage
+   */
+  async loadUserProfile(): Promise<{ dateOfBirth?: Date; height?: number } | null> {
+    return this.fetchProfile();
+  }
+
   // --- Private helper methods ---
 
   private calculateLoadScore(

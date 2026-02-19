@@ -12,6 +12,7 @@ export interface UseDailySyncResult {
   loading: boolean;
   syncing: boolean;
   lastSyncDate: Date | null;
+  userProfile: { dateOfBirth?: Date; height?: number } | null;
   syncNow: (force?: boolean) => Promise<SyncResult>;
   loadMetrics: (date: Date) => Promise<void>;
   setUserDateOfBirth: (dateOfBirth: Date) => Promise<Baselines>;
@@ -27,6 +28,7 @@ export function useDailySync(autoSync: boolean = true): UseDailySyncResult {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [lastSyncDate, setLastSyncDate] = useState<Date | null>(null);
+  const [userProfile, setUserProfile] = useState<{ dateOfBirth?: Date; height?: number } | null>(null);
 
   // Load sync status on mount
   useEffect(() => {
@@ -37,6 +39,15 @@ export function useDailySync(autoSync: boolean = true): UseDailySyncResult {
         // Get last sync date
         const lastSync = await SyncManager.getLastSyncDate();
         setLastSyncDate(lastSync);
+        
+        // Load user profile
+        try {
+          const profile = await SyncManager.loadUserProfile();
+          setUserProfile(profile);
+          console.log('useDailySync: User profile loaded', profile);
+        } catch (error) {
+          console.log('useDailySync: No user profile yet');
+        }
         
         // Load baselines
         const loadedBaselines = await SyncManager.loadBaselines();
@@ -146,6 +157,10 @@ export function useDailySync(autoSync: boolean = true): UseDailySyncResult {
     const calculatedBaselines = await SyncManager.setUserDateOfBirth(dateOfBirth);
     setBaselines(calculatedBaselines);
     
+    // Reload user profile after setting DOB
+    const updatedProfile = await SyncManager.loadUserProfile();
+    setUserProfile(updatedProfile);
+    
     return calculatedBaselines;
   }, []);
 
@@ -155,6 +170,7 @@ export function useDailySync(autoSync: boolean = true): UseDailySyncResult {
     loading,
     syncing,
     lastSyncDate,
+    userProfile,
     syncNow,
     loadMetrics,
     setUserDateOfBirth,
