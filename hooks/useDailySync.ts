@@ -33,36 +33,48 @@ export function useDailySync(autoSync: boolean = true): UseDailySyncResult {
     console.log('useDailySync: Hook initialized');
     
     const initializeSync = async () => {
-      // Get current sync status
-      const status = SyncManager.getSyncStatus();
-      setLastSyncDate(status.lastSyncDate);
-      setBaselines(status.baselines);
-      
-      // Load today's metrics if available
-      const today = new Date();
-      const todayMetrics = await SyncManager.loadMetricsForDate(today);
-      
-      if (todayMetrics) {
-        console.log('useDailySync: Loaded cached metrics for today');
-        setMetrics(todayMetrics);
-      }
-      
-      // Auto-sync if enabled and not synced today
-      if (autoSync) {
-        console.log('useDailySync: Auto-sync enabled, attempting sync');
-        const result = await SyncManager.syncDailyData(false);
+      try {
+        // Get last sync date
+        const lastSync = await SyncManager.getLastSyncDate();
+        setLastSyncDate(lastSync);
         
-        if (result.success && result.metrics) {
-          setMetrics(result.metrics);
+        // Load baselines
+        const loadedBaselines = await SyncManager.loadBaselines();
+        if (loadedBaselines) {
+          setBaselines(loadedBaselines);
+        }
+        
+        // Load today's metrics if available
+        const today = new Date();
+        const todayMetrics = await SyncManager.loadMetrics(today);
+        
+        if (todayMetrics) {
+          console.log('useDailySync: Loaded cached metrics for today');
+          setMetrics(todayMetrics);
+        }
+        
+        // Auto-sync if enabled and not synced today
+        if (autoSync && !SyncManager.isSyncedToday()) {
+          console.log('useDailySync: Auto-sync enabled, attempting sync');
+          await SyncManager.performSync();
+          
+          // Reload metrics after sync
+          const updatedMetrics = await SyncManager.loadMetrics(today);
+          if (updatedMetrics) {
+            setMetrics(updatedMetrics);
+          }
+          
+          // Reload baselines after sync
+          const updatedBaselines = await SyncManager.getBaselines();
+          setBaselines(updatedBaselines);
+          
           setLastSyncDate(new Date());
         }
-        
-        if (result.baselines) {
-          setBaselines(result.baselines);
-        }
+      } catch (error) {
+        console.error('useDailySync: Initialization error:', error);
+      } finally {
+        setLoading(false);
       }
-      
-      setLoading(false);
     };
 
     initializeSync();
@@ -79,18 +91,32 @@ export function useDailySync(autoSync: boolean = true): UseDailySyncResult {
     setSyncing(true);
     
     try {
-      const result = await SyncManager.syncDailyData(force);
+      await SyncManager.performSync();
       
-      if (result.success && result.metrics) {
-        setMetrics(result.metrics);
-        setLastSyncDate(new Date());
+      // Reload metrics after sync
+      const today = new Date();
+      const updatedMetrics = await SyncManager.loadMetrics(today);
+      if (updatedMetrics) {
+        setMetrics(updatedMetrics);
       }
       
-      if (result.baselines) {
-        setBaselines(result.baselines);
-      }
+      // Reload baselines after sync
+      const updatedBaselines = await SyncManager.getBaselines();
+      setBaselines(updatedBaselines);
       
-      return result;
+      setLastSyncDate(new Date());
+      
+      return {
+        success: true,
+        metrics: updatedMetrics,
+        baselines: updatedBaselines,
+      };
+    } catch (error) {
+      console.error('useDailySync: Sync error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
     } finally {
       setSyncing(false);
     }
@@ -104,7 +130,7 @@ export function useDailySync(autoSync: boolean = true): UseDailySyncResult {
     setLoading(true);
     
     try {
-      const loadedMetrics = await SyncManager.loadMetricsForDate(date);
+      const loadedMetrics = await SyncManager.loadMetrics(date);
       setMetrics(loadedMetrics);
     } finally {
       setLoading(false);

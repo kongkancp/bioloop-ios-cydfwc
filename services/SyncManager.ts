@@ -24,6 +24,13 @@ interface UserProfile {
   height?: number;
 }
 
+export interface SyncResult {
+  success: boolean;
+  metrics?: DailyMetrics | null;
+  baselines?: Baselines;
+  error?: string;
+}
+
 class SyncManager {
   private static instance: SyncManager;
   private lastSyncDate: Date | null = null;
@@ -474,6 +481,26 @@ class SyncManager {
     } catch (error) {
       console.error('❌ Failed to load baselines:', error);
       return null;
+    }
+  }
+
+  async setUserDateOfBirth(dateOfBirth: Date): Promise<Baselines> {
+    try {
+      // Save date of birth
+      await AsyncStorage.setItem(USER_DOB_KEY, dateOfBirth.toISOString());
+      console.log('✓ Saved user date of birth');
+
+      // Calculate and return baselines
+      const baselines = await this.getBaselines();
+      
+      // Save baselines
+      await AsyncStorage.setItem(BASELINES_STORAGE_KEY, JSON.stringify(baselines));
+      console.log('✓ Calculated and saved baselines');
+
+      return baselines;
+    } catch (error) {
+      console.error('❌ Failed to set user date of birth:', error);
+      throw error;
     }
   }
 }
