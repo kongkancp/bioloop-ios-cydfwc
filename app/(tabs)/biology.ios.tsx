@@ -1,14 +1,5 @@
 
-import { colors } from '@/styles/commonStyles';
-import { IconSymbol } from '@/components/IconSymbol';
-import { Stack } from 'expo-router';
-import { getPerformancePercentage, calculateAge } from '@/utils/baselines';
-import {
-  getAgeGapColor,
-  getAgeGapEmoji,
-  getAgeGapMessage,
-} from '@/utils/bioAge';
-import { LinearGradient } from 'expo-linear-gradient';
+import { useDailySync } from '@/hooks/useDailySync';
 import {
   View,
   Text,
@@ -16,11 +7,24 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
+import InsufficientDataBanner from '@/components/InsufficientDataBanner';
+import { colors } from '@/styles/commonStyles';
+import { Stack } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useMemo } from 'react';
-import { useDailySync } from '@/hooks/useDailySync';
-import InsufficientDataBanner from '@/components/InsufficientDataBanner';
+import Svg, { Circle } from 'react-native-svg';
+import {
+  getAgeGapColor,
+  getAgeGapEmoji,
+  getAgeGapMessage,
+  calculateBioAgeIndices,
+  hasMinimumData,
+  calculateRawBioAge,
+} from '@/utils/bioAge';
+import { getPerformancePercentage } from '@/utils/baselines';
+import { calculateAge } from '@/utils/age';
+import { IconSymbol } from '@/components/IconSymbol';
 
 const styles = StyleSheet.create({
   container: {
@@ -35,168 +39,124 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   title: {
-    fontSize: 34,
+    fontSize: 32,
     fontWeight: 'bold',
     color: colors.text,
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 17,
+    fontSize: 16,
     color: colors.textSecondary,
   },
-  section: {
-    marginBottom: 24,
-  },
-  bioAgeHero: {
-    borderRadius: 22,
+  bioAgeCard: {
+    borderRadius: 20,
     padding: 24,
-    marginBottom: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-  },
-  bioAgeTitle: {
-    fontSize: 22,
-    fontWeight: '600',
-    color: colors.text,
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  bioAgeValueContainer: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'center',
     marginBottom: 20,
+    overflow: 'hidden',
   },
-  bioAgeValue: {
-    fontSize: 72,
-    fontWeight: 'bold',
-  },
-  bioAgeUnit: {
-    fontSize: 28,
-    color: colors.textSecondary,
-    marginLeft: 8,
-  },
-  ageGapContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  ageGapEmoji: {
-    fontSize: 28,
-    marginRight: 8,
-  },
-  ageGapText: {
-    fontSize: 20,
-    fontWeight: '600',
-  },
-  ageGapMessage: {
-    fontSize: 15,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  longevityCard: {
-    backgroundColor: colors.cardBackground,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-  },
-  longevityGaugeContainer: {
-    marginRight: 16,
-  },
-  longevityScore: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  longevityInfo: {
-    flex: 1,
-  },
-  longevityTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  longevitySubtitle: {
-    fontSize: 13,
-    color: colors.textSecondary,
-  },
-  card: {
-    backgroundColor: colors.cardBackground,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-  },
-  sectionTitle: {
-    fontSize: 22,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 16,
-  },
-  metricRow: {
+  bioAgeHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 20,
   },
-  metricLabel: {
-    fontSize: 15,
-    color: colors.textSecondary,
+  bioAgeLabel: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 4,
+  },
+  bioAgeValue: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  bioAgeUnit: {
+    fontSize: 24,
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  ageGapContainer: {
+    alignItems: 'flex-end',
+  },
+  ageGapEmoji: {
+    fontSize: 32,
+    marginBottom: 4,
+  },
+  ageGapText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  bioAgeMessage: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.9)',
+    lineHeight: 20,
+  },
+  componentsCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+  },
+  componentsTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 16,
+  },
+  componentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  componentIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.backgroundSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  componentInfo: {
     flex: 1,
   },
-  metricValue: {
-    fontSize: 20,
+  componentName: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  componentBar: {
+    height: 6,
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  componentBarFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  componentValue: {
+    fontSize: 15,
     fontWeight: '600',
     color: colors.text,
     marginLeft: 12,
   },
-  metricUnit: {
+  infoCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 20,
+  },
+  infoTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  infoText: {
     fontSize: 14,
     color: colors.textSecondary,
-    marginLeft: 4,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: 12,
-  },
-  comparisonRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  comparisonLabel: {
-    fontSize: 15,
-    color: colors.textSecondary,
-  },
-  comparisonValue: {
-    fontSize: 17,
-    fontWeight: '600',
-  },
-  performanceGood: {
-    color: '#34C759',
-  },
-  performanceAverage: {
-    color: '#FF9500',
-  },
-  performancePoor: {
-    color: '#FF3B30',
+    lineHeight: 20,
   },
   loadingContainer: {
     flex: 1,
@@ -205,88 +165,80 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    fontSize: 17,
+    fontSize: 16,
     color: colors.textSecondary,
   },
-  noDataText: {
-    fontSize: 17,
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  emptyText: {
+    fontSize: 16,
     color: colors.textSecondary,
     textAlign: 'center',
-    marginTop: 20,
-  },
-  updatedText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: 8,
-  },
-  chronologicalAgeText: {
-    fontSize: 15,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginTop: 8,
   },
 });
 
-function BiologyScreen() {
-  const { metrics, baselines, loading } = useDailySync(true);
+export default function BiologyScreen() {
+  const { metrics, baselines, loading, userProfile } = useDailySync();
 
-  const getPerformanceColor = (percentage: number) => {
-    if (percentage >= 100) {
-      return styles.performanceGood;
+  // Calculate BioAge components
+  const bioAgeData = useMemo(() => {
+    if (!metrics || !baselines || !userProfile?.dateOfBirth) {
+      return null;
     }
-    if (percentage >= 85) {
-      return styles.performanceAverage;
+
+    const age = calculateAge(userProfile.dateOfBirth);
+    const indices = calculateBioAgeIndices(metrics, baselines, userProfile.height);
+
+    if (!hasMinimumData(indices)) {
+      return null;
     }
-    return styles.performancePoor;
-  };
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+    const bioAge = calculateRawBioAge(age, indices);
+    const ageGap = age - bioAge;
 
-  // Calculate missing metrics
+    return {
+      chronologicalAge: age,
+      bioAge,
+      ageGap,
+      indices,
+    };
+  }, [metrics, baselines, userProfile]);
+
+  // Determine missing metrics for banner
   const missingMetrics = useMemo(() => {
-    const missing: string[] = [];
-    
-    if (!metrics?.hrv) {
-      missing.push('HRV');
+    if (!bioAgeData) {
+      const missing: string[] = [];
+      if (!metrics?.hrv || !metrics?.restingHR) missing.push('HRV');
+      if (!metrics?.vo2max) missing.push('VO2 Max');
+      if (!metrics?.sleepDuration) missing.push('Sleep');
+      if (!metrics?.workouts || metrics.workouts.length === 0) missing.push('Workouts');
+      if (!userProfile?.height || !metrics?.bodyMass) missing.push('BMI');
+      return missing;
     }
-    
-    if (!metrics?.vo2max) {
-      missing.push('VO2 Max');
-    }
-    
-    return missing;
-  }, [metrics]);
+    return [];
+  }, [bioAgeData, metrics, userProfile]);
 
-  // Calculate chronological age and age gap
-  const chronologicalAge = baselines ? calculateAge(new Date(Date.now() - (365 * 24 * 60 * 60 * 1000 * 35))) : 35;
-  const bioAge = metrics?.bioAgeSmoothed ?? metrics?.bioAge ?? chronologicalAge;
-  const ageGap = bioAge - chronologicalAge;
-  const longevityScore = metrics?.longevityScore ?? 85;
+  const getPerformanceColor = (percentage: number): string => {
+    if (percentage >= 100) return '#10b981';
+    if (percentage >= 80) return '#84cc16';
+    if (percentage >= 60) return '#eab308';
+    return '#ef4444';
+  };
 
-  // Prepare display values
-  const bioAgeDisplay = bioAge.toFixed(1);
-  const ageGapDisplay = Math.abs(ageGap).toFixed(1);
-  const ageGapColor = getAgeGapColor(ageGap);
-  const ageGapEmoji = getAgeGapEmoji(ageGap);
-  const ageGapMessage = getAgeGapMessage(ageGap);
-  
-  // Determine age gap text
-  let ageGapText = '';
-  if (ageGap < 0) {
-    ageGapText = `${ageGapDisplay} years younger`;
-  } else if (ageGap > 0) {
-    ageGapText = `${ageGapDisplay} years older`;
-  } else {
-    ageGapText = 'On target';
-  }
+  const formatDate = (date: Date): string => {
+    const options: Intl.DateTimeFormatOptions = {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+    };
+    return date.toLocaleDateString('en-US', options);
+  };
+
+  const todayFormatted = formatDate(new Date());
 
   if (loading) {
     return (
@@ -305,6 +257,44 @@ function BiologyScreen() {
     );
   }
 
+  if (!metrics || !baselines) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <Stack.Screen
+          options={{
+            title: 'Biology',
+            headerShown: false,
+          }}
+        />
+        <View style={styles.emptyContainer}>
+          <IconSymbol
+            ios_icon_name="heart.text.square"
+            android_material_icon_name="favorite"
+            size={64}
+            color={colors.textSecondary}
+          />
+          <Text style={styles.emptyText}>
+            No health data available yet.{'\n'}Sync your HealthKit data to see your biological age.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const autonomicPercentage = bioAgeData?.indices.autonomic ?? 0;
+  const vo2Percentage = bioAgeData?.indices.vo2 ?? 0;
+  const sleepPercentage = bioAgeData?.indices.sleep ?? 0;
+  const workoutPercentage = bioAgeData?.indices.workout ?? 0;
+  const bmiPercentage = bioAgeData?.indices.bmi ?? 0;
+
+  const ageGapColor = bioAgeData ? getAgeGapColor(bioAgeData.ageGap) : colors.textSecondary;
+  const ageGapEmoji = bioAgeData ? getAgeGapEmoji(bioAgeData.ageGap) : '📊';
+  const ageGapMessage = bioAgeData ? getAgeGapMessage(bioAgeData.ageGap) : '';
+  const bioAgeDisplay = bioAgeData ? bioAgeData.bioAge.toFixed(1) : '--';
+  const ageGapDisplay = bioAgeData
+    ? `${bioAgeData.ageGap >= 0 ? '+' : ''}${bioAgeData.ageGap.toFixed(1)} years`
+    : '--';
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <Stack.Screen
@@ -315,252 +305,183 @@ function BiologyScreen() {
       />
       <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text style={styles.title}>Biology</Text>
-          <Text style={styles.subtitle}>Your biological age and health metrics</Text>
+          <Text style={styles.title}>Biological Age</Text>
+          <Text style={styles.subtitle}>{todayFormatted}</Text>
         </View>
 
-        {/* Insufficient Data Banner */}
         {missingMetrics.length > 0 && (
           <InsufficientDataBanner missing={missingMetrics} />
         )}
 
-        {/* BioAge Hero Card */}
-        <LinearGradient
-          colors={['rgba(147, 51, 234, 0.1)', 'rgba(59, 130, 246, 0.05)']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={styles.bioAgeHero}
-        >
-          <Text style={styles.bioAgeTitle}>Your Biological Age</Text>
-          
-          <View style={styles.bioAgeValueContainer}>
-            <Text style={[styles.bioAgeValue, { color: ageGapColor }]}>
-              {bioAgeDisplay}
-            </Text>
-            <Text style={styles.bioAgeUnit}>years</Text>
-          </View>
-
-          <View style={styles.ageGapContainer}>
-            <Text style={styles.ageGapEmoji}>{ageGapEmoji}</Text>
-            <Text style={[styles.ageGapText, { color: ageGapColor }]}>
-              {ageGapText}
-            </Text>
-          </View>
-
-          <Text style={styles.ageGapMessage}>{ageGapMessage}</Text>
-          
-          <Text style={styles.chronologicalAgeText}>
-            Chronological age: {chronologicalAge} years
-          </Text>
-        </LinearGradient>
-
-        {/* Longevity Score Card */}
-        <View style={styles.longevityCard}>
-          <View style={styles.longevityGaugeContainer}>
-            <Svg width={72} height={72}>
-              {/* Background circle */}
-              <Circle
-                cx={36}
-                cy={36}
-                r={30}
-                stroke={colors.border}
-                strokeWidth={12}
-                fill="none"
-              />
-              {/* Progress circle */}
-              <Circle
-                cx={36}
-                cy={36}
-                r={30}
-                stroke="#9333EA"
-                strokeWidth={12}
-                fill="none"
-                strokeDasharray={`${(longevityScore / 100) * 188.4} 188.4`}
-                strokeLinecap="round"
-                rotation="-90"
-                origin="36, 36"
-              />
-            </Svg>
-            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' }}>
-              <Text style={styles.longevityScore}>{Math.round(longevityScore)}</Text>
+        {bioAgeData && (
+          <LinearGradient
+            colors={[ageGapColor, ageGapColor + 'CC']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.bioAgeCard}
+          >
+            <View style={styles.bioAgeHeader}>
+              <View>
+                <Text style={styles.bioAgeLabel}>Your Biological Age</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+                  <Text style={styles.bioAgeValue}>{bioAgeDisplay}</Text>
+                  <Text style={styles.bioAgeUnit}> years</Text>
+                </View>
+              </View>
+              <View style={styles.ageGapContainer}>
+                <Text style={styles.ageGapEmoji}>{ageGapEmoji}</Text>
+                <Text style={styles.ageGapText}>{ageGapDisplay}</Text>
+              </View>
             </View>
+            <Text style={styles.bioAgeMessage}>{ageGapMessage}</Text>
+          </LinearGradient>
+        )}
+
+        <View style={styles.componentsCard}>
+          <Text style={styles.componentsTitle}>BioAge Components</Text>
+
+          <View style={styles.componentRow}>
+            <View style={styles.componentIcon}>
+              <IconSymbol
+                ios_icon_name="heart.fill"
+                android_material_icon_name="favorite"
+                size={20}
+                color={colors.primary}
+              />
+            </View>
+            <View style={styles.componentInfo}>
+              <Text style={styles.componentName}>Autonomic (HRV + HR)</Text>
+              <View style={styles.componentBar}>
+                <View
+                  style={[
+                    styles.componentBarFill,
+                    {
+                      width: `${Math.min(autonomicPercentage, 100)}%`,
+                      backgroundColor: getPerformanceColor(autonomicPercentage),
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+            <Text style={styles.componentValue}>{Math.round(autonomicPercentage)}%</Text>
           </View>
 
-          <View style={styles.longevityInfo}>
-            <Text style={styles.longevityTitle}>Longevity Score</Text>
-            <Text style={styles.longevitySubtitle}>Age gap and trajectory</Text>
+          <View style={styles.componentRow}>
+            <View style={styles.componentIcon}>
+              <IconSymbol
+                ios_icon_name="figure.run"
+                android_material_icon_name="directions-run"
+                size={20}
+                color={colors.primary}
+              />
+            </View>
+            <View style={styles.componentInfo}>
+              <Text style={styles.componentName}>VO2 Max</Text>
+              <View style={styles.componentBar}>
+                <View
+                  style={[
+                    styles.componentBarFill,
+                    {
+                      width: `${Math.min(vo2Percentage, 100)}%`,
+                      backgroundColor: getPerformanceColor(vo2Percentage),
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+            <Text style={styles.componentValue}>{Math.round(vo2Percentage)}%</Text>
+          </View>
+
+          <View style={styles.componentRow}>
+            <View style={styles.componentIcon}>
+              <IconSymbol
+                ios_icon_name="moon.fill"
+                android_material_icon_name="bedtime"
+                size={20}
+                color={colors.primary}
+              />
+            </View>
+            <View style={styles.componentInfo}>
+              <Text style={styles.componentName}>Sleep Quality</Text>
+              <View style={styles.componentBar}>
+                <View
+                  style={[
+                    styles.componentBarFill,
+                    {
+                      width: `${Math.min(sleepPercentage, 100)}%`,
+                      backgroundColor: getPerformanceColor(sleepPercentage),
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+            <Text style={styles.componentValue}>{Math.round(sleepPercentage)}%</Text>
+          </View>
+
+          <View style={styles.componentRow}>
+            <View style={styles.componentIcon}>
+              <IconSymbol
+                ios_icon_name="figure.strengthtraining.traditional"
+                android_material_icon_name="fitness-center"
+                size={20}
+                color={colors.primary}
+              />
+            </View>
+            <View style={styles.componentInfo}>
+              <Text style={styles.componentName}>Workout Frequency</Text>
+              <View style={styles.componentBar}>
+                <View
+                  style={[
+                    styles.componentBarFill,
+                    {
+                      width: `${Math.min(workoutPercentage, 100)}%`,
+                      backgroundColor: getPerformanceColor(workoutPercentage),
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+            <Text style={styles.componentValue}>{Math.round(workoutPercentage)}%</Text>
+          </View>
+
+          <View style={styles.componentRow}>
+            <View style={styles.componentIcon}>
+              <IconSymbol
+                ios_icon_name="scalemass.fill"
+                android_material_icon_name="monitor-weight"
+                size={20}
+                color={colors.primary}
+              />
+            </View>
+            <View style={styles.componentInfo}>
+              <Text style={styles.componentName}>Body Composition (BMI)</Text>
+              <View style={styles.componentBar}>
+                <View
+                  style={[
+                    styles.componentBarFill,
+                    {
+                      width: `${Math.min(bmiPercentage, 100)}%`,
+                      backgroundColor: getPerformanceColor(bmiPercentage),
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+            <Text style={styles.componentValue}>{Math.round(bmiPercentage)}%</Text>
           </View>
         </View>
 
-        {baselines ? (
-          <>
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Expected Values</Text>
-              
-              <View style={styles.card}>
-                <View style={styles.metricRow}>
-                  <IconSymbol
-                    ios_icon_name="heart.fill"
-                    android_material_icon_name="favorite"
-                    size={24}
-                    color={colors.primary}
-                  />
-                  <Text style={styles.metricLabel}>Max Heart Rate</Text>
-                  <Text style={styles.metricValue}>{baselines.hrMax}</Text>
-                  <Text style={styles.metricUnit}>bpm</Text>
-                </View>
-
-                <View style={styles.divider} />
-
-                <View style={styles.metricRow}>
-                  <IconSymbol
-                    ios_icon_name="waveform.path.ecg"
-                    android_material_icon_name="show-chart"
-                    size={24}
-                    color={colors.primary}
-                  />
-                  <Text style={styles.metricLabel}>Expected HRV</Text>
-                  <Text style={styles.metricValue}>{baselines.expectedHRV}</Text>
-                  <Text style={styles.metricUnit}>ms</Text>
-                </View>
-
-                <View style={styles.divider} />
-
-                <View style={styles.metricRow}>
-                  <IconSymbol
-                    ios_icon_name="heart.text.square"
-                    android_material_icon_name="favorite-border"
-                    size={24}
-                    color={colors.primary}
-                  />
-                  <Text style={styles.metricLabel}>Expected Resting HR</Text>
-                  <Text style={styles.metricValue}>{baselines.expectedRHR}</Text>
-                  <Text style={styles.metricUnit}>bpm</Text>
-                </View>
-
-                <View style={styles.divider} />
-
-                <View style={styles.metricRow}>
-                  <IconSymbol
-                    ios_icon_name="lungs.fill"
-                    android_material_icon_name="air"
-                    size={24}
-                    color={colors.primary}
-                  />
-                  <Text style={styles.metricLabel}>Expected VO2 Max</Text>
-                  <Text style={styles.metricValue}>{baselines.expectedVO2max}</Text>
-                  <Text style={styles.metricUnit}>mL/kg/min</Text>
-                </View>
-
-                <Text style={styles.updatedText}>
-                  Updated: {formatDate(baselines.updatedAt)}
-                </Text>
-              </View>
-            </View>
-
-            {metrics && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Your Performance</Text>
-                
-                {metrics.hrv !== undefined && (
-                  <View style={styles.card}>
-                    <Text style={styles.metricLabel}>Heart Rate Variability</Text>
-                    <View style={styles.comparisonRow}>
-                      <Text style={styles.comparisonLabel}>Your HRV:</Text>
-                      <Text style={styles.metricValue}>{metrics.hrv} ms</Text>
-                    </View>
-                    <View style={styles.comparisonRow}>
-                      <Text style={styles.comparisonLabel}>Expected:</Text>
-                      <Text style={styles.comparisonValue}>
-                        {baselines.expectedHRV} ms
-                      </Text>
-                    </View>
-                    <View style={styles.comparisonRow}>
-                      <Text style={styles.comparisonLabel}>Performance:</Text>
-                      <Text
-                        style={[
-                          styles.comparisonValue,
-                          getPerformanceColor(
-                            getPerformancePercentage(metrics.hrv, baselines.expectedHRV, true)
-                          ),
-                        ]}
-                      >
-                        {getPerformancePercentage(metrics.hrv, baselines.expectedHRV, true)}%
-                      </Text>
-                    </View>
-                  </View>
-                )}
-
-                {metrics.restingHR !== undefined && (
-                  <View style={styles.card}>
-                    <Text style={styles.metricLabel}>Resting Heart Rate</Text>
-                    <View style={styles.comparisonRow}>
-                      <Text style={styles.comparisonLabel}>Your RHR:</Text>
-                      <Text style={styles.metricValue}>{metrics.restingHR} bpm</Text>
-                    </View>
-                    <View style={styles.comparisonRow}>
-                      <Text style={styles.comparisonLabel}>Expected:</Text>
-                      <Text style={styles.comparisonValue}>
-                        {baselines.expectedRHR} bpm
-                      </Text>
-                    </View>
-                    <View style={styles.comparisonRow}>
-                      <Text style={styles.comparisonLabel}>Performance:</Text>
-                      <Text
-                        style={[
-                          styles.comparisonValue,
-                          getPerformanceColor(
-                            getPerformancePercentage(metrics.restingHR, baselines.expectedRHR, false)
-                          ),
-                        ]}
-                      >
-                        {getPerformancePercentage(metrics.restingHR, baselines.expectedRHR, false)}%
-                      </Text>
-                    </View>
-                  </View>
-                )}
-
-                {metrics.vo2max !== undefined && (
-                  <View style={styles.card}>
-                    <Text style={styles.metricLabel}>VO2 Max</Text>
-                    <View style={styles.comparisonRow}>
-                      <Text style={styles.comparisonLabel}>Your VO2 Max:</Text>
-                      <Text style={styles.metricValue}>{metrics.vo2max} mL/kg/min</Text>
-                    </View>
-                    <View style={styles.comparisonRow}>
-                      <Text style={styles.comparisonLabel}>Expected:</Text>
-                      <Text style={styles.comparisonValue}>
-                        {baselines.expectedVO2max} mL/kg/min
-                      </Text>
-                    </View>
-                    <View style={styles.comparisonRow}>
-                      <Text style={styles.comparisonLabel}>Performance:</Text>
-                      <Text
-                        style={[
-                          styles.comparisonValue,
-                          getPerformanceColor(
-                            getPerformancePercentage(metrics.vo2max, baselines.expectedVO2max, true)
-                          ),
-                        ]}
-                      >
-                        {getPerformancePercentage(metrics.vo2max, baselines.expectedVO2max, true)}%
-                      </Text>
-                    </View>
-                  </View>
-                )}
-              </View>
-            )}
-          </>
-        ) : (
-          <View style={styles.card}>
-            <Text style={styles.noDataText}>
-              No baselines calculated yet. Please set your date of birth in Profile to calculate age-adjusted baselines.
-            </Text>
-          </View>
-        )}
+        <View style={styles.infoCard}>
+          <Text style={styles.infoTitle}>About Biological Age</Text>
+          <Text style={styles.infoText}>
+            Your biological age reflects how well your body is functioning compared to your
+            chronological age. It's calculated from five key health components: autonomic function
+            (HRV + resting heart rate), cardiovascular fitness (VO2 max), sleep quality, workout
+            frequency, and body composition. A lower biological age indicates better overall health
+            and longevity potential.
+          </Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
-
-export default BiologyScreen;

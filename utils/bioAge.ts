@@ -1,227 +1,171 @@
 
-// BioAge Calculation Utilities
-// Calculates biological age based on health metrics
-
-import { DailyMetrics, Baselines } from '@/types/health';
 import { validateAndClamp } from './validation';
+import { DailyMetrics, Baselines } from '@/types/health';
+import { calculateAge, isValidAge } from './age';
 
 export interface BioAgeIndices {
   autonomic: number | null;
   vo2: number | null;
-  sleep: number;
-  workout: number;
-  bmi: number;
+  sleep: number | null;
+  workout: number | null;
+  bmi: number | null;
+}
+
+export interface BioAgeData {
+  date: Date;
+  chronologicalAge: number;
+  indices: BioAgeIndices;
+  offset: number;
+  ageImpact: number;
+  bioAge: number;
+  bioAgeSmoothed: number;
+  longevityScore: number;
+  computedAt: Date;
 }
 
 /**
- * Calculate autonomic index from HRV and Resting HR
- * Returns -1 (poor) to 1 (excellent) or null if insufficient data
+ * Calculate autonomic nervous system index from HRV and resting HR
  */
-export function calculateAutonomicIndex(
+function calculateAutonomicIndex(
   hrv: number | undefined,
   restingHR: number | undefined,
   baselines: Baselines
 ): number | null {
-  if (hrv === undefined && restingHR === undefined) {
+  if (!hrv || !restingHR || !baselines.hrv || !baselines.restingHR) {
     return null;
   }
 
-  let score = 0;
-  let count = 0;
+  const hrvScore = validateAndClamp((hrv / baselines.hrv) * 100, 0, 200);
+  const hrScore = validateAndClamp((baselines.restingHR / restingHR) * 100, 0, 200);
 
-  if (hrv !== undefined) {
-    const hrvRatio = hrv / baselines.expectedHRV;
-    const hrvScore = validateAndClamp((hrvRatio - 1) * 2, -1, 1);
-    score += hrvScore;
-    count++;
-  }
-
-  if (restingHR !== undefined) {
-    const rhrRatio = restingHR / baselines.expectedRHR;
-    const rhrScore = validateAndClamp((1 - rhrRatio) * 2, -1, 1);
-    score += rhrScore;
-    count++;
-  }
-
-  return count > 0 ? score / count : null;
+  return (hrvScore + hrScore) / 2;
 }
 
 /**
- * Calculate VO2 index from VO2 max
- * Returns -1 (poor) to 1 (excellent) or null if insufficient data
+ * Calculate VO2 max index
  */
-export function calculateVO2Index(
+function calculateVO2Index(
   vo2max: number | undefined,
   baselines: Baselines
 ): number | null {
-  if (vo2max === undefined) {
+  if (!vo2max || !baselines.vo2max) {
     return null;
   }
 
-  const vo2Ratio = vo2max / baselines.expectedVO2max;
-  return validateAndClamp((vo2Ratio - 1) * 2, -1, 1);
+  return validateAndClamp((vo2max / baselines.vo2max) * 100, 0, 200);
 }
 
 /**
- * Calculate sleep index from sleep duration and consistency
- * Returns -1 (poor) to 1 (excellent)
+ * Calculate sleep quality index
  */
-export function calculateSleepIndex(
+function calculateSleepIndex(
   sleepDuration: number | undefined,
   sleepConsistency: number | undefined
-): number {
-  const duration = sleepDuration ?? 7;
-  const consistency = sleepConsistency ?? 0.7;
-
-  // Optimal sleep is 7-9 hours
-  let durationScore = 0;
-  if (duration >= 7 && duration <= 9) {
-    durationScore = 1;
-  } else if (duration >= 6 && duration < 7) {
-    durationScore = 0.5;
-  } else if (duration > 9 && duration <= 10) {
-    durationScore = 0.5;
-  } else if (duration < 6) {
-    durationScore = -0.5;
-  } else {
-    durationScore = -0.5;
+): number | null {
+  if (!sleepDuration) {
+    return null;
   }
 
-  // Consistency score (0-1 scale)
-  const consistencyScore = (consistency - 0.5) * 2;
+  const optimalSleep = 8 * 60; // 8 hours in minutes
+  const durationScore = validateAndClamp((sleepDuration / optimalSleep) * 100, 0, 200);
 
-  const sleepScore = (durationScore * 0.6) + (consistencyScore * 0.4);
-  return validateAndClamp(sleepScore, -1, 1);
+  if (sleepConsistency !== undefined) {
+    return (durationScore + sleepConsistency) / 2;
+  }
+
+  return durationScore;
 }
 
 /**
- * Calculate workout index from workouts per week
- * Returns -1 (poor) to 1 (excellent)
+ * Calculate workout frequency index
  */
-export function calculateWorkoutIndex(workoutsPerWeek: number | undefined): number {
-  const workouts = workoutsPerWeek ?? 0;
-
-  // Optimal is 3-5 workouts per week
-  let score = 0;
-  if (workouts >= 3 && workouts <= 5) {
-    score = 1;
-  } else if (workouts === 2 || workouts === 6) {
-    score = 0.5;
-  } else if (workouts === 1 || workouts === 7) {
-    score = 0;
-  } else if (workouts === 0) {
-    score = -0.5;
-  } else {
-    score = -0.5; // Over-training
+function calculateWorkoutIndex(workoutsPerWeek: number | undefined): number | null {
+  if (workoutsPerWeek === undefined) {
+    return null;
   }
 
-  return validateAndClamp(score, -1, 1);
+  const optimal = 4;
+  return validateAndClamp((workoutsPerWeek / optimal) * 100, 0, 200);
 }
 
 /**
- * Calculate BMI index from height and body mass
- * Returns -1 (poor) to 1 (excellent)
+ * Calculate BMI index
  */
-export function calculateBMIIndex(
+function calculateBMIIndex(
   height: number | undefined,
   bodyMass: number | undefined
-): number {
+): number | null {
   if (!height || !bodyMass) {
-    return 0; // Neutral if no data
+    return null;
   }
 
-  const heightM = height / 100; // Convert cm to meters
+  const heightM = height / 100;
   const bmi = bodyMass / (heightM * heightM);
 
-  // Optimal BMI is 18.5-24.9
-  let score = 0;
-  if (bmi >= 18.5 && bmi <= 24.9) {
-    score = 1;
-  } else if (bmi >= 17 && bmi < 18.5) {
-    score = 0.5;
-  } else if (bmi > 24.9 && bmi <= 27) {
-    score = 0.5;
-  } else if (bmi >= 15 && bmi < 17) {
-    score = 0;
-  } else if (bmi > 27 && bmi <= 30) {
-    score = 0;
-  } else {
-    score = -0.5;
-  }
+  const optimalBMI = 22;
+  const deviation = Math.abs(bmi - optimalBMI);
+  const score = Math.max(0, 100 - deviation * 10);
 
-  return validateAndClamp(score, -1, 1);
+  return validateAndClamp(score, 0, 100);
 }
 
 /**
- * Calculate all BioAge indices from metrics
+ * Calculate all BioAge component indices
  */
 export function calculateBioAgeIndices(
   metrics: DailyMetrics,
-  baselines: Baselines
+  baselines: Baselines,
+  height?: number
 ): BioAgeIndices {
   return {
     autonomic: calculateAutonomicIndex(metrics.hrv, metrics.restingHR, baselines),
     vo2: calculateVO2Index(metrics.vo2max, baselines),
     sleep: calculateSleepIndex(metrics.sleepDuration, metrics.sleepConsistency),
-    workout: calculateWorkoutIndex(metrics.workoutsPerWeek),
-    bmi: calculateBMIIndex(metrics.height, metrics.bodyMass),
+    workout: calculateWorkoutIndex(
+      metrics.workouts ? metrics.workouts.length : undefined
+    ),
+    bmi: calculateBMIIndex(height, metrics.bodyMass),
   };
 }
 
 /**
- * Check if we have minimum data to calculate BioAge
+ * Check if we have minimum data for BioAge calculation (3 of 5 components)
  */
 export function hasMinimumData(indices: BioAgeIndices): boolean {
-  // Need at least autonomic OR vo2, plus sleep
-  return (indices.autonomic !== null || indices.vo2 !== null);
+  const count = [
+    indices.autonomic,
+    indices.vo2,
+    indices.sleep,
+    indices.workout,
+    indices.bmi,
+  ].filter((x) => x !== null).length;
+
+  return count >= 3;
 }
 
 /**
- * Calculate weighted age offset from indices
- * Returns -1 to 1 (negative = younger, positive = older)
+ * Calculate age offset from indices
  */
 export function calculateAgeOffset(indices: BioAgeIndices): number {
-  let offset = 0;
-  let totalWeight = 0;
+  const values = [
+    indices.autonomic,
+    indices.vo2,
+    indices.sleep,
+    indices.workout,
+    indices.bmi,
+  ].filter((x) => x !== null) as number[];
 
-  if (indices.autonomic !== null) {
-    offset += indices.autonomic * 0.40;
-    totalWeight += 0.40;
-  }
+  if (values.length === 0) return 0;
 
-  if (indices.vo2 !== null) {
-    offset += indices.vo2 * 0.25;
-    totalWeight += 0.25;
-  }
-
-  offset += indices.sleep * 0.15;
-  totalWeight += 0.15;
-
-  offset += indices.workout * 0.10;
-  totalWeight += 0.10;
-
-  offset += indices.bmi * 0.10;
-  totalWeight += 0.10;
-
-  if (totalWeight > 0) {
-    offset = offset / totalWeight;
-  }
-
-  return validateAndClamp(offset, -1, 1);
+  const average = values.reduce((sum, val) => sum + val, 0) / values.length;
+  return average - 100;
 }
 
 /**
- * Calculate age impact in years from offset
- * Uses non-linear transformation for realistic impact
+ * Convert offset to age impact (years)
  */
 export function calculateAgeImpact(offset: number): number {
-  const amplifier = 8;
-  const sharpness = 2;
-
-  const nonlinear = 1 - Math.exp(-Math.abs(offset) * sharpness);
-  const ageImpact = offset * amplifier * nonlinear;
-
-  return validateAndClamp(ageImpact, -12, 12);
+  return offset * 0.1;
 }
 
 /**
@@ -233,14 +177,11 @@ export function calculateRawBioAge(
 ): number {
   const offset = calculateAgeOffset(indices);
   const ageImpact = calculateAgeImpact(offset);
-  const bioAge = chronologicalAge + ageImpact;
-
-  return validateAndClamp(bioAge, 18, 100);
+  return chronologicalAge + ageImpact;
 }
 
 /**
- * Apply 14-day EMA smoothing to BioAge
- * Limits daily change to ±1.5 years
+ * Smooth BioAge using exponential moving average
  */
 export function smoothBioAge(
   rawBioAge: number,
@@ -250,102 +191,134 @@ export function smoothBioAge(
     return rawBioAge;
   }
 
-  const period = 14;
-  const alpha = 2 / (period + 1);
-
-  let smoothed = (alpha * rawBioAge) + ((1 - alpha) * previousSmoothed);
-
-  // Limit daily change to ±1.5 years
-  const maxChange = 1.5;
-  const change = smoothed - previousSmoothed;
-
-  if (Math.abs(change) > maxChange) {
-    const direction = change > 0 ? 1 : -1;
-    smoothed = previousSmoothed + (direction * maxChange);
-  }
-
-  return smoothed;
+  const alpha = 0.3;
+  return alpha * rawBioAge + (1 - alpha) * previousSmoothed;
 }
 
 /**
- * Calculate longevity score from age gap
- * Returns 0-100 (higher is better)
+ * Calculate longevity score (0-100)
  */
 export function calculateLongevityScore(
   bioAge: number,
   chronologicalAge: number
 ): number {
-  const ageGap = bioAge - chronologicalAge;
-  const longevityScore = 100 - (Math.abs(ageGap) * 5);
-
-  return validateAndClamp(longevityScore, 0, 100);
+  const ageGap = chronologicalAge - bioAge;
+  const score = 50 + ageGap * 5;
+  return validateAndClamp(score, 0, 100);
 }
 
 /**
- * Get color for age gap display
+ * Get color for age gap visualization
  */
 export function getAgeGapColor(ageGap: number): string {
-  if (ageGap < -2) {
-    return '#34C759'; // Green - significantly younger
-  }
-  if (ageGap < 0) {
-    return '#30D158'; // Light green - younger
-  }
-  if (ageGap === 0) {
-    return '#007AFF'; // Blue - on target
-  }
-  if (ageGap <= 2) {
-    return '#FF9500'; // Orange - slightly older
-  }
-  return '#FF3B30'; // Red - significantly older
+  if (ageGap >= 5) return '#10b981';
+  if (ageGap >= 2) return '#22c55e';
+  if (ageGap >= 0) return '#84cc16';
+  if (ageGap >= -2) return '#eab308';
+  if (ageGap >= -5) return '#f97316';
+  return '#ef4444';
 }
 
 /**
- * Get emoji for age gap display
+ * Get emoji for age gap
  */
 export function getAgeGapEmoji(ageGap: number): string {
-  if (ageGap < -5) {
-    return '🌟';
-  }
-  if (ageGap < -2) {
-    return '💪';
-  }
-  if (ageGap < 0) {
-    return '✨';
-  }
-  if (ageGap === 0) {
-    return '🎯';
-  }
-  if (ageGap <= 2) {
-    return '⚠️';
-  }
-  if (ageGap <= 5) {
-    return '⚡';
-  }
-  return '🔴';
+  if (ageGap >= 5) return '🌟';
+  if (ageGap >= 2) return '💪';
+  if (ageGap >= 0) return '👍';
+  if (ageGap >= -2) return '⚠️';
+  if (ageGap >= -5) return '📉';
+  return '🚨';
 }
 
 /**
- * Get message for age gap display
+ * Get message for age gap
  */
 export function getAgeGapMessage(ageGap: number): string {
-  if (ageGap < -5) {
-    return 'Exceptional biological health! Your body is significantly younger than your age.';
+  if (ageGap >= 5) return 'Exceptional! You\'re aging slower than average.';
+  if (ageGap >= 2) return 'Great! You\'re doing better than your age.';
+  if (ageGap >= 0) return 'Good! You\'re on track with your age.';
+  if (ageGap >= -2) return 'Fair. Room for improvement.';
+  if (ageGap >= -5) return 'Needs attention. Focus on recovery.';
+  return 'Critical. Prioritize health improvements.';
+}
+
+/**
+ * Calculate BioAge with user profile integration
+ * This is the main function that orchestrates the entire BioAge calculation
+ */
+export async function calculateBioAgeWithProfile(
+  date: Date,
+  dateOfBirth: Date | undefined,
+  height: number | undefined,
+  metrics: DailyMetrics,
+  baselines: Baselines,
+  previousBioAgeData?: BioAgeData
+): Promise<BioAgeData | null> {
+  // Validate profile data
+  if (!dateOfBirth) {
+    console.error('❌ No date of birth found in profile');
+    return null;
   }
-  if (ageGap < -2) {
-    return 'Great work! Your biological age is notably younger than your chronological age.';
+
+  // Calculate age
+  const age = calculateAge(dateOfBirth);
+  
+  // Validate age range
+  if (!isValidAge(age)) {
+    console.error(`❌ Invalid age for BioAge calculation: ${age} (must be 18-100)`);
+    return null;
   }
-  if (ageGap < 0) {
-    return 'You\'re doing well. Your body is aging slower than average.';
+
+  console.log(`✓ Calculating BioAge for age ${age}`);
+
+  // Calculate all component indices
+  const indices = calculateBioAgeIndices(metrics, baselines, height);
+
+  // Check if we have minimum required data (3 of 5 components)
+  const componentCount = [
+    indices.autonomic,
+    indices.vo2,
+    indices.sleep,
+    indices.workout,
+    indices.bmi,
+  ].filter((x) => x !== null).length;
+
+  if (componentCount < 3) {
+    console.error(`❌ Insufficient data for BioAge: only ${componentCount}/5 components available`);
+    return null;
   }
-  if (ageGap === 0) {
-    return 'You\'re right on target for your age. Keep up the good habits!';
-  }
-  if (ageGap <= 2) {
-    return 'Your biological age is slightly higher. Focus on recovery and consistency.';
-  }
-  if (ageGap <= 5) {
-    return 'There\'s room for improvement. Prioritize sleep, exercise, and stress management.';
-  }
-  return 'Your biological age needs attention. Consider consulting with a health professional.';
+
+  console.log(`✓ BioAge calculation using ${componentCount}/5 components`);
+
+  // Calculate age offset and impact
+  const offset = calculateAgeOffset(indices);
+  const ageImpact = calculateAgeImpact(offset);
+  const rawBioAge = age + ageImpact;
+
+  // Apply smoothing if we have previous data
+  const smoothed = smoothBioAge(rawBioAge, previousBioAgeData?.bioAgeSmoothed);
+
+  // Calculate longevity score
+  const longevityScore = calculateLongevityScore(smoothed, age);
+
+  // Create BioAge data object
+  const data: BioAgeData = {
+    date,
+    chronologicalAge: age,
+    indices,
+    offset,
+    ageImpact,
+    bioAge: rawBioAge,
+    bioAgeSmoothed: smoothed,
+    longevityScore,
+    computedAt: new Date(),
+  };
+
+  const ageGap = age - smoothed;
+  console.log(
+    `✓ BioAge: ${smoothed.toFixed(1)} years (gap: ${ageGap >= 0 ? '+' : ''}${ageGap.toFixed(1)} years)`
+  );
+
+  return data;
 }

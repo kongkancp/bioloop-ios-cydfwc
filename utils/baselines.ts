@@ -1,100 +1,113 @@
 
-// Age-Adjusted Baselines Calculator
-// Calculates expected health metric values based on age
-
-import { Baselines } from '@/types/health';
+import { DailyMetrics, Baselines } from '@/types/health';
+import { calculateAge } from './age';
 
 /**
- * Calculate age-adjusted expected values for health metrics
- * Based on population averages for different age groups
- * 
- * @param age - User's age in years
- * @returns Baselines object with expected values
+ * Age group norms for baseline calculations
  */
-export function calculateBaselines(age: number): Baselines {
-  console.log('Baselines: Calculating age-adjusted baselines for age:', age);
-  
-  // Maximum heart rate (220 - age formula)
-  const hrMax = 220 - age;
-  
-  // Expected HRV (Heart Rate Variability) in milliseconds
-  // Higher values indicate better cardiovascular fitness and recovery
-  const expectedHRV = age < 30 ? 65 :
-                      age < 40 ? 60 :
-                      age < 50 ? 50 :
-                      age < 60 ? 45 : 40;
-  
-  // Expected Resting Heart Rate in beats per minute
-  // Lower values generally indicate better cardiovascular fitness
-  const expectedRHR = age < 30 ? 62 :
-                      age < 40 ? 65 :
-                      age < 50 ? 68 :
-                      age < 60 ? 70 : 72;
-  
-  // Expected VO2 max in mL/kg/min
-  // Measure of aerobic fitness - higher is better
-  const expectedVO2max = age < 30 ? 45 :
-                         age < 40 ? 42 :
-                         age < 50 ? 38 :
-                         age < 60 ? 35 : 32;
-  
+interface AgeGroupNorms {
+  restingHR: number;
+  hrv: number;
+  vo2max: number;
+}
+
+/**
+ * Get age-appropriate norms for baseline calculations
+ */
+export function getAgeGroupNorms(age: number): AgeGroupNorms {
+  if (age < 30) {
+    return { restingHR: 60, hrv: 65, vo2max: 45 };
+  } else if (age < 40) {
+    return { restingHR: 62, hrv: 60, vo2max: 42 };
+  } else if (age < 50) {
+    return { restingHR: 64, hrv: 55, vo2max: 39 };
+  } else if (age < 60) {
+    return { restingHR: 66, hrv: 50, vo2max: 36 };
+  } else {
+    return { restingHR: 68, hrv: 45, vo2max: 33 };
+  }
+}
+
+/**
+ * Calculate baselines from historical metrics
+ */
+export function calculateBaselines(
+  historicalMetrics: DailyMetrics[],
+  dateOfBirth?: Date
+): Baselines {
+  if (historicalMetrics.length === 0) {
+    // Use age-appropriate defaults if we have date of birth
+    if (dateOfBirth) {
+      const age = calculateAge(dateOfBirth);
+      const norms = getAgeGroupNorms(age);
+      console.log(`✓ Using age-appropriate defaults for age ${age}`);
+      return norms;
+    }
+
+    // Fallback to general defaults
+    console.log('⚠️ No historical data or date of birth, using general defaults');
+    return { restingHR: 65, hrv: 60, vo2max: 40 };
+  }
+
+  const validRestingHR = historicalMetrics
+    .map((m) => m.restingHR)
+    .filter((v): v is number => v !== undefined && v > 0);
+
+  const validHRV = historicalMetrics
+    .map((m) => m.hrv)
+    .filter((v): v is number => v !== undefined && v > 0);
+
+  const validVO2 = historicalMetrics
+    .map((m) => m.vo2max)
+    .filter((v): v is number => v !== undefined && v > 0);
+
   const baselines: Baselines = {
-    expectedHRV,
-    expectedRHR,
-    expectedVO2max,
-    hrMax,
-    updatedAt: new Date(),
+    restingHR:
+      validRestingHR.length > 0
+        ? validRestingHR.reduce((a, b) => a + b, 0) / validRestingHR.length
+        : undefined,
+    hrv:
+      validHRV.length > 0
+        ? validHRV.reduce((a, b) => a + b, 0) / validHRV.length
+        : undefined,
+    vo2max:
+      validVO2.length > 0
+        ? validVO2.reduce((a, b) => a + b, 0) / validVO2.length
+        : undefined,
   };
-  
-  console.log('Baselines: Calculated baselines:', {
-    age,
-    hrMax,
-    expectedHRV,
-    expectedRHR,
-    expectedVO2max,
-  });
-  
+
+  // Fill in missing baselines with age-appropriate defaults if we have date of birth
+  if (dateOfBirth) {
+    const age = calculateAge(dateOfBirth);
+    const norms = getAgeGroupNorms(age);
+
+    if (!baselines.restingHR) baselines.restingHR = norms.restingHR;
+    if (!baselines.hrv) baselines.hrv = norms.hrv;
+    if (!baselines.vo2max) baselines.vo2max = norms.vo2max;
+
+    console.log(`✓ Baselines calculated with age ${age} norms as fallback`);
+  } else {
+    // Use general defaults for missing values
+    if (!baselines.restingHR) baselines.restingHR = 65;
+    if (!baselines.hrv) baselines.hrv = 60;
+    if (!baselines.vo2max) baselines.vo2max = 40;
+
+    console.log('✓ Baselines calculated with general defaults as fallback');
+  }
+
   return baselines;
 }
 
 /**
- * Calculate age from date of birth
- * 
- * @param dateOfBirth - User's date of birth
- * @returns Age in years
- */
-export function calculateAge(dateOfBirth: Date): number {
-  const today = new Date();
-  let age = today.getFullYear() - dateOfBirth.getFullYear();
-  const monthDiff = today.getMonth() - dateOfBirth.getMonth();
-  
-  // Adjust if birthday hasn't occurred yet this year
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dateOfBirth.getDate())) {
-    age--;
-  }
-  
-  console.log('Baselines: Calculated age from DOB:', age);
-  return age;
-}
-
-/**
- * Get performance percentage compared to baseline
- * 
- * @param actual - Actual measured value
- * @param expected - Expected baseline value
- * @param higherIsBetter - Whether higher values are better (true for HRV, VO2max; false for RHR)
- * @returns Percentage (100 = at baseline, >100 = above baseline, <100 = below baseline)
+ * Get performance percentage relative to baseline
  */
 export function getPerformancePercentage(
-  actual: number,
-  expected: number,
-  higherIsBetter: boolean = true
+  current: number | undefined,
+  baseline: number | undefined
 ): number {
-  if (higherIsBetter) {
-    // For metrics where higher is better (HRV, VO2max)
-    return Math.round((actual / expected) * 100);
-  } else {
-    // For metrics where lower is better (RHR)
-    return Math.round((expected / actual) * 100);
-  }
+  if (!current || !baseline) return 0;
+  return Math.round((current / baseline) * 100);
 }
+
+// Re-export calculateAge for backward compatibility
+export { calculateAge } from './age';
