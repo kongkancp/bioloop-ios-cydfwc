@@ -142,7 +142,8 @@ export default function HomeScreen() {
           }}
         />
         <EmptyDataView
-          icon="heart"
+          icon="favorite"
+          iosIcon="heart.text.square"
           title="No Health Data"
           message="Grant HealthKit permissions to start tracking your health metrics."
           actionTitle="Grant Permission"
