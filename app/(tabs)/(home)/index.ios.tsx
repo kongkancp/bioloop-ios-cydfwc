@@ -164,7 +164,7 @@ export default function HomeScreen() {
             title="No Health Data"
             message="Grant HealthKit permissions to see your daily readiness score and health metrics."
             actionTitle="Grant Permission"
-            onAction={handleRequestPermission}
+            action={handleRequestPermission}
           />
         ) : (
           <>
