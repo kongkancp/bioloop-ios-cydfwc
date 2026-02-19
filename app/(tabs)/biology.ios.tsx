@@ -190,18 +190,21 @@ export default function BiologyScreen() {
       return null;
     }
 
-    const age = calculateAge(userProfile.dateOfBirth);
+    const chronologicalAge = calculateAge(userProfile.dateOfBirth);
     const indices = calculateBioAgeIndices(metrics, baselines, userProfile.height);
 
     if (!hasMinimumData(indices)) {
       return null;
     }
 
-    const bioAge = calculateRawBioAge(age, indices);
-    const ageGap = age - bioAge;
+    const bioAge = calculateRawBioAge(chronologicalAge, indices);
+    // FIXED: Age gap = BioAge - Chronological Age (matches Swift implementation)
+    const ageGap = bioAge - chronologicalAge;
+
+    console.log(`BioAge calculation: Chronological=${chronologicalAge}, Bio=${bioAge.toFixed(1)}, Gap=${ageGap.toFixed(1)}`);
 
     return {
-      chronologicalAge: age,
+      chronologicalAge,
       bioAge,
       ageGap,
       indices,
@@ -475,7 +478,7 @@ export default function BiologyScreen() {
           <Text style={styles.infoTitle}>About Biological Age</Text>
           <Text style={styles.infoText}>
             Your biological age reflects how well your body is functioning compared to your
-            chronological age. It's calculated from five key health components: autonomic function
+            chronological age. It&apos;s calculated from five key health components: autonomic function
             (HRV + resting heart rate), cardiovascular fitness (VO2 max), sleep quality, workout
             frequency, and body composition. A lower biological age indicates better overall health
             and longevity potential.
