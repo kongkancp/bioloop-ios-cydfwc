@@ -1,126 +1,335 @@
 
-import { calculatePerformanceIndex, applyEMA } from '@/utils/performanceIndex';
-import { DailyMetrics, Baselines } from '@/types/health';
 import HealthKitManager from './HealthKitManager';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { calculateACWR, canCalculateACWR } from '@/utils/acwr';
-import { calculateLoadScore } from '@/utils/loadScore';
-import { startOfDay, isSameDay, subDays } from 'date-fns';
-import { calculateRecoveryEfficiency } from '@/utils/recoveryEfficiency';
-import { validateAndClamp } from '@/utils/validation';
-import { calculateBaselines } from '@/utils/baselines';
+import DataManager from './DataManager';
+import { DailyMetrics, Baselines } from '@/types/health';
 import { calculateAge } from '@/utils/age';
+import { calculateBioAgeWithProfile, BioAgeData } from '@/utils/bioAge';
+import { calculateBaselines } from '@/utils/baselines';
+import { calculateLoadScore } from '@/utils/loadScore';
+import { calculateACWR, canCalculateACWR } from '@/utils/acwr';
+import { calculateRecoveryEfficiency } from '@/utils/recoveryEfficiency';
+import { calculatePerformanceIndex, applyEMA } from '@/utils/performanceIndex';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { startOfDay, subDays } from 'date-fns';
 
 const LAST_SYNC_DATE_KEY = '@bioloop_last_sync_date';
 const METRICS_STORAGE_PREFIX = '@bioloop_metrics_';
 const BASELINES_STORAGE_KEY = '@bioloop_baselines';
+const BIOAGE_STORAGE_PREFIX = '@bioloop_bioage_';
 const USER_DOB_KEY = '@bioloop_user_dob';
+const USER_HEIGHT_KEY = '@bioloop_user_height';
 
 class SyncManager {
-  /**
-   * Perform daily sync of health data
-   */
-  async performDailySync(forceSync: boolean = false): Promise<DailyMetrics | null> {
+  private static instance: SyncManager;
+  private lastSyncDate: Date | null = null;
+
+  private constructor() {
+    console.log('SyncManager: Initialized');
+  }
+
+  static getInstance(): SyncManager {
+    if (!SyncManager.instance) {
+      SyncManager.instance = new SyncManager();
+    }
+    return SyncManager.instance;
+  }
+
+  isSyncedToday(): boolean {
+    if (!this.lastSyncDate) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const last = new Date(this.lastSyncDate);
+    last.setHours(0, 0, 0, 0);
+    return today.getTime() === last.getTime();
+  }
+
+  async performSync(): Promise<void> {
+    console.log('🔄 Starting sync...');
+
     try {
-      const today = startOfDay(new Date());
-      const lastSyncStr = await AsyncStorage.getItem(LAST_SYNC_DATE_KEY);
+      const healthManager = HealthKitManager;
+      const today = new Date();
 
-      // Check if we already synced today
-      if (!forceSync && lastSyncStr) {
-        const lastSync = new Date(lastSyncStr);
-        if (isSameDay(lastSync, today)) {
-          console.log('✓ Already synced today, loading cached data');
-          return await this.loadMetrics(today);
-        }
-      }
+      const authorized = await healthManager.isAuthorized();
+      if (!authorized) throw new Error('HealthKit not authorized');
 
-      console.log('🔄 Starting daily sync...');
-
-      // Check HealthKit authorization
-      const isAuthorized = await HealthKitManager.isAuthorized();
-      if (!isAuthorized) {
-        console.error('❌ HealthKit not authorized');
-        return null;
-      }
-
-      // Fetch today's metrics from HealthKit
-      const metrics = await HealthKitManager.fetchDailyMetrics(today);
-      if (!metrics) {
-        console.error('❌ Failed to fetch metrics from HealthKit');
-        return null;
-      }
+      const metrics = await healthManager.fetchDailyMetrics(today);
+      if (!metrics) throw new Error('Failed to fetch metrics');
 
       console.log('✓ Fetched metrics from HealthKit');
 
-      // Load user's date of birth for age-based calculations
-      const dobStr = await AsyncStorage.getItem(USER_DOB_KEY);
-      let dateOfBirth: Date | undefined;
-      if (dobStr) {
-        dateOfBirth = new Date(dobStr);
-        const age = calculateAge(dateOfBirth);
-        console.log(`✓ User age: ${age} years`);
+      if (metrics.workouts?.length > 0) {
+        const baselines = await this.getBaselines();
+        const loadResult = this.calculateLoadScore(metrics, baselines);
+        metrics.loadScore = loadResult.loadScore;
+        metrics.dailyLoad = loadResult.dailyLoad;
+        console.log(`✓ Load Score: ${loadResult.loadScore.toFixed(1)}`);
+      }
+
+      const acwrResult = await this.calculateACWR();
+      if (acwrResult) {
+        metrics.acwr = acwrResult.acwr;
+        metrics.acwrScore = acwrResult.acwrScore;
+        console.log(`✓ ACWR: ${acwrResult.acwr.toFixed(2)}`);
+      }
+
+      if (metrics.workouts?.length > 0) {
+        metrics.recoveryEfficiency = await this.calculateRecovery(metrics);
+        console.log(`✓ Recovery Efficiency: ${metrics.recoveryEfficiency.toFixed(1)}%`);
+      }
+
+      metrics.performanceIndex = await this.calculatePerformanceIndex(metrics);
+      console.log(`✓ Performance Index: ${metrics.performanceIndex.toFixed(1)}`);
+
+      await this.saveDailyMetrics(metrics);
+
+      try {
+        const bioAge = await this.calculateBioAge(today);
+        if (bioAge) {
+          console.log(`✓ BioAge: ${bioAge.bioAgeSmoothed.toFixed(1)}`);
+        }
+      } catch (e) {
+        console.log('ℹ️ BioAge skipped - insufficient data or profile incomplete');
+      }
+
+      await this.cleanupOldData();
+
+      this.lastSyncDate = new Date();
+      await AsyncStorage.setItem(LAST_SYNC_DATE_KEY, this.lastSyncDate.toISOString());
+      console.log('✅ Sync complete');
+    } catch (error) {
+      console.error('❌ Sync failed:', error);
+      throw error;
+    }
+  }
+
+  async cleanupOldData(): Promise<void> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - 365);
+    console.log('🗑 Cleaning up data older than', cutoffDate.toISOString().split('T')[0]);
+
+    try {
+      const allKeys = await AsyncStorage.getAllKeys();
+      const oldMetricsKeys = allKeys.filter((key) => {
+        if (key.startsWith(METRICS_STORAGE_PREFIX)) {
+          const dateStr = key.replace(METRICS_STORAGE_PREFIX, '');
+          const date = new Date(dateStr);
+          return date < cutoffDate;
+        }
+        return false;
+      });
+
+      const oldBioAgeKeys = allKeys.filter((key) => {
+        if (key.startsWith(BIOAGE_STORAGE_PREFIX)) {
+          const dateStr = key.replace(BIOAGE_STORAGE_PREFIX, '');
+          const date = new Date(dateStr);
+          return date < cutoffDate;
+        }
+        return false;
+      });
+
+      const keysToDelete = [...oldMetricsKeys, ...oldBioAgeKeys];
+
+      if (keysToDelete.length > 0) {
+        await AsyncStorage.multiRemove(keysToDelete);
+        console.log(`✓ Cleaned up ${keysToDelete.length} old records`);
+      } else {
+        console.log('✓ No old data to clean up');
+      }
+    } catch (error) {
+      console.error('❌ Failed to cleanup old data:', error);
+    }
+  }
+
+  // --- Private helper methods ---
+
+  private async getBaselines(): Promise<Baselines> {
+    try {
+      // Try to load cached baselines
+      const cached = await AsyncStorage.getItem(BASELINES_STORAGE_KEY);
+      if (cached) {
+        const baselines = JSON.parse(cached);
+        console.log('✓ Loaded cached baselines');
+        return baselines;
       }
 
       // Calculate baselines from historical data
       const historicalMetrics = await this.loadHistoricalMetrics(7);
+      const dobStr = await AsyncStorage.getItem(USER_DOB_KEY);
+      const dateOfBirth = dobStr ? new Date(dobStr) : undefined;
+
       const baselines = calculateBaselines(historicalMetrics, dateOfBirth);
-      await this.saveBaselines(baselines);
+      await AsyncStorage.setItem(BASELINES_STORAGE_KEY, JSON.stringify(baselines));
 
-      console.log('✓ Baselines calculated:', baselines);
-
-      // Calculate Performance Index
-      const previousMetrics = await this.loadMetrics(subDays(today, 1));
-      const performanceIndex = calculatePerformanceIndex(metrics, baselines);
-      const smoothedPI = previousMetrics?.performanceIndex
-        ? applyEMA(performanceIndex, previousMetrics.performanceIndex)
-        : performanceIndex;
-
-      metrics.performanceIndex = smoothedPI;
-
-      // Calculate ACWR if we have enough data
-      if (canCalculateACWR(historicalMetrics)) {
-        const acwr = calculateACWR(historicalMetrics);
-        metrics.acwr = acwr;
-        console.log(`✓ ACWR: ${acwr.toFixed(2)}`);
-      }
-
-      // Calculate Load Score
-      const loadScore = calculateLoadScore(metrics);
-      metrics.loadScore = loadScore;
-      console.log(`✓ Load Score: ${loadScore.toFixed(1)}`);
-
-      // Calculate Recovery Efficiency
-      if (previousMetrics) {
-        const recoveryEfficiency = calculateRecoveryEfficiency(metrics, previousMetrics);
-        metrics.recoveryEfficiency = recoveryEfficiency;
-        console.log(`✓ Recovery Efficiency: ${recoveryEfficiency.toFixed(1)}%`);
-      }
-
-      // Save metrics
-      await this.saveMetrics(today, metrics);
-      await AsyncStorage.setItem(LAST_SYNC_DATE_KEY, today.toISOString());
-
-      console.log('✅ Daily sync complete');
-      console.log(`Performance Index: ${smoothedPI.toFixed(1)}`);
-
-      return metrics;
+      console.log('✓ Calculated new baselines');
+      return baselines;
     } catch (error) {
-      console.error('❌ Daily sync failed:', error);
+      console.error('❌ Failed to get baselines:', error);
+      // Return default baselines
+      return {
+        expectedHRV: 60,
+        expectedRHR: 65,
+        expectedVO2max: 40,
+        hrMax: 180,
+        updatedAt: new Date(),
+      };
+    }
+  }
+
+  private calculateLoadScore(
+    metrics: DailyMetrics,
+    baselines: Baselines
+  ): { loadScore: number; dailyLoad: number } {
+    if (!metrics.workouts || metrics.workouts.length === 0) {
+      return { loadScore: 0, dailyLoad: 0 };
+    }
+
+    const restingHR = metrics.restingHR || baselines.expectedRHR;
+    const maxHR = baselines.hrMax;
+
+    return calculateLoadScore(metrics.workouts, restingHR, maxHR);
+  }
+
+  private async calculateACWR(): Promise<{ acwr: number; acwrScore: number } | null> {
+    try {
+      // Load last 28 days of metrics
+      const historicalMetrics = await this.loadHistoricalMetrics(28);
+
+      if (historicalMetrics.length < 21) {
+        console.log('ℹ️ Insufficient data for ACWR (need 21+ days)');
+        return null;
+      }
+
+      // Extract daily load values
+      const dailyLoads = historicalMetrics.map((m) => m.dailyLoad || 0);
+
+      // Get last 7 days and last 28 days
+      const last7Days = dailyLoads.slice(0, 7);
+      const last28Days = dailyLoads;
+
+      const result = calculateACWR(last7Days, last28Days);
+      return result;
+    } catch (error) {
+      console.error('❌ Failed to calculate ACWR:', error);
       return null;
     }
   }
 
-  /**
-   * Save metrics for a specific date
-   */
-  private async saveMetrics(date: Date, metrics: DailyMetrics): Promise<void> {
-    const key = `${METRICS_STORAGE_PREFIX}${startOfDay(date).toISOString()}`;
-    await AsyncStorage.setItem(key, JSON.stringify(metrics));
+  private async calculateRecovery(metrics: DailyMetrics): Promise<number> {
+    try {
+      // Get the most recent workout
+      const latestWorkout = metrics.workouts[metrics.workouts.length - 1];
+
+      // Get 7-day average HRV
+      const historicalMetrics = await this.loadHistoricalMetrics(7);
+      const hrvValues = historicalMetrics
+        .map((m) => m.hrv)
+        .filter((v): v is number => v !== undefined && v > 0);
+
+      const avgHRV =
+        hrvValues.length > 0
+          ? hrvValues.reduce((a, b) => a + b, 0) / hrvValues.length
+          : undefined;
+
+      return calculateRecoveryEfficiency(
+        latestWorkout.peakHR,
+        latestWorkout.hrAfter60s,
+        metrics.hrv,
+        avgHRV
+      );
+    } catch (error) {
+      console.error('❌ Failed to calculate recovery:', error);
+      return 50; // neutral baseline
+    }
   }
 
-  /**
-   * Load metrics for a specific date
-   */
+  private async calculatePerformanceIndex(metrics: DailyMetrics): Promise<number> {
+    try {
+      const loadScore = metrics.loadScore || 0;
+      const acwrScore = metrics.acwrScore || 50;
+      const recoveryEfficiency = metrics.recoveryEfficiency || 50;
+
+      const rawPI = calculatePerformanceIndex(loadScore, acwrScore, recoveryEfficiency);
+
+      // Apply EMA smoothing
+      const yesterday = subDays(new Date(), 1);
+      const previousMetrics = await this.loadMetrics(yesterday);
+      const previousPI = previousMetrics?.performanceIndex;
+
+      const smoothedPI = applyEMA(rawPI, previousPI, 7);
+
+      metrics.performanceIndexRaw = rawPI;
+      return smoothedPI;
+    } catch (error) {
+      console.error('❌ Failed to calculate performance index:', error);
+      return 50; // neutral baseline
+    }
+  }
+
+  private async saveDailyMetrics(metrics: DailyMetrics): Promise<void> {
+    try {
+      const key = `${METRICS_STORAGE_PREFIX}${startOfDay(metrics.date).toISOString()}`;
+      await AsyncStorage.setItem(key, JSON.stringify(metrics));
+      console.log('✓ Saved daily metrics');
+    } catch (error) {
+      console.error('❌ Failed to save metrics:', error);
+      throw error;
+    }
+  }
+
+  private async calculateBioAge(date: Date): Promise<BioAgeData | null> {
+    try {
+      // Load user profile
+      const dobStr = await AsyncStorage.getItem(USER_DOB_KEY);
+      const heightStr = await AsyncStorage.getItem(USER_HEIGHT_KEY);
+
+      if (!dobStr) {
+        console.log('ℹ️ No date of birth found - skipping BioAge');
+        return null;
+      }
+
+      const dateOfBirth = new Date(dobStr);
+      const height = heightStr ? parseFloat(heightStr) : undefined;
+
+      // Load today's metrics
+      const metrics = await this.loadMetrics(date);
+      if (!metrics) {
+        console.log('ℹ️ No metrics found for today - skipping BioAge');
+        return null;
+      }
+
+      // Load baselines
+      const baselines = await this.getBaselines();
+
+      // Load previous BioAge data for smoothing
+      const yesterday = subDays(date, 1);
+      const previousBioAge = await this.loadBioAge(yesterday);
+
+      // Calculate BioAge
+      const bioAgeData = await calculateBioAgeWithProfile(
+        date,
+        dateOfBirth,
+        height,
+        metrics,
+        baselines,
+        previousBioAge || undefined
+      );
+
+      if (bioAgeData) {
+        // Save BioAge data
+        await this.saveBioAge(date, bioAgeData);
+        console.log('✓ BioAge calculated and saved');
+      }
+
+      return bioAgeData;
+    } catch (error) {
+      console.error('❌ Failed to calculate BioAge:', error);
+      return null;
+    }
+  }
+
+  // --- Public utility methods ---
+
   async loadMetrics(date: Date): Promise<DailyMetrics | null> {
     try {
       const key = `${METRICS_STORAGE_PREFIX}${startOfDay(date).toISOString()}`;
@@ -145,9 +354,6 @@ class SyncManager {
     }
   }
 
-  /**
-   * Load historical metrics for the past N days
-   */
   private async loadHistoricalMetrics(days: number): Promise<DailyMetrics[]> {
     const metrics: DailyMetrics[] = [];
     const today = startOfDay(new Date());
@@ -163,30 +369,32 @@ class SyncManager {
     return metrics;
   }
 
-  /**
-   * Save baselines
-   */
-  private async saveBaselines(baselines: Baselines): Promise<void> {
-    await AsyncStorage.setItem(BASELINES_STORAGE_KEY, JSON.stringify(baselines));
+  private async saveBioAge(date: Date, bioAge: BioAgeData): Promise<void> {
+    try {
+      const key = `${BIOAGE_STORAGE_PREFIX}${startOfDay(date).toISOString()}`;
+      await AsyncStorage.setItem(key, JSON.stringify(bioAge));
+    } catch (error) {
+      console.error('❌ Failed to save BioAge:', error);
+    }
   }
 
-  /**
-   * Load baselines
-   */
-  async loadBaselines(): Promise<Baselines | null> {
+  async loadBioAge(date: Date): Promise<BioAgeData | null> {
     try {
-      const data = await AsyncStorage.getItem(BASELINES_STORAGE_KEY);
+      const key = `${BIOAGE_STORAGE_PREFIX}${startOfDay(date).toISOString()}`;
+      const data = await AsyncStorage.getItem(key);
       if (!data) return null;
-      return JSON.parse(data);
+
+      const bioAge = JSON.parse(data);
+      bioAge.date = new Date(bioAge.date);
+      bioAge.computedAt = new Date(bioAge.computedAt);
+
+      return bioAge;
     } catch (error) {
-      console.error('❌ Failed to load baselines:', error);
+      console.error('❌ Failed to load BioAge:', error);
       return null;
     }
   }
 
-  /**
-   * Get last sync date
-   */
   async getLastSyncDate(): Promise<Date | null> {
     try {
       const dateStr = await AsyncStorage.getItem(LAST_SYNC_DATE_KEY);
@@ -197,24 +405,16 @@ class SyncManager {
     }
   }
 
-  /**
-   * Clear all sync data (for testing/debugging)
-   */
-  async clearAllData(): Promise<void> {
+  async loadBaselines(): Promise<Baselines | null> {
     try {
-      const keys = await AsyncStorage.getAllKeys();
-      const bioloopKeys = keys.filter(
-        (key) =>
-          key.startsWith(METRICS_STORAGE_PREFIX) ||
-          key === LAST_SYNC_DATE_KEY ||
-          key === BASELINES_STORAGE_KEY
-      );
-      await AsyncStorage.multiRemove(bioloopKeys);
-      console.log('✓ All sync data cleared');
+      const data = await AsyncStorage.getItem(BASELINES_STORAGE_KEY);
+      if (!data) return null;
+      return JSON.parse(data);
     } catch (error) {
-      console.error('❌ Failed to clear data:', error);
+      console.error('❌ Failed to load baselines:', error);
+      return null;
     }
   }
 }
 
-export default new SyncManager();
+export default SyncManager.getInstance();

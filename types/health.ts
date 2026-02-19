@@ -48,11 +48,14 @@ export interface WorkoutSession {
 }
 
 export interface Baselines {
-  expectedHRV: number;
-  expectedRHR: number;
-  expectedVO2max: number;
-  hrMax: number;
-  updatedAt: Date;
+  expectedHRV?: number;
+  expectedRHR?: number;
+  expectedVO2max?: number;
+  hrMax?: number;
+  restingHR?: number; // Alias for expectedRHR
+  hrv?: number; // Alias for expectedHRV
+  vo2max?: number; // Alias for expectedVO2max
+  updatedAt?: Date;
 }
 
 export interface HealthMetric {
