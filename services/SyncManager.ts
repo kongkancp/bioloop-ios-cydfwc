@@ -19,6 +19,11 @@ const BIOAGE_STORAGE_PREFIX = '@bioloop_bioage_';
 const USER_DOB_KEY = '@bioloop_user_dob';
 const USER_HEIGHT_KEY = '@bioloop_user_height';
 
+interface UserProfile {
+  dateOfBirth?: Date;
+  height?: number;
+}
+
 class SyncManager {
   private static instance: SyncManager;
   private lastSyncDate: Date | null = null;
@@ -141,40 +146,96 @@ class SyncManager {
     }
   }
 
-  // --- Private helper methods ---
+  // --- Age and Baseline Calculation Methods ---
 
-  private async getBaselines(): Promise<Baselines> {
+  /**
+   * Calculate age from date of birth with precise month/day handling
+   */
+  calculateAge(dateOfBirth: Date): number {
+    const today = new Date();
+    const birth = new Date(dateOfBirth);
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age;
+  }
+
+  /**
+   * Get age-appropriate norms for baseline calculations
+   */
+  getAgeGroupNorms(age: number) {
+    if (age < 25) return { hrv: 70, restingHR: 60, vo2max: 48 };
+    if (age < 35) return { hrv: 65, restingHR: 62, vo2max: 45 };
+    if (age < 45) return { hrv: 60, restingHR: 65, vo2max: 42 };
+    if (age < 55) return { hrv: 50, restingHR: 68, vo2max: 38 };
+    if (age < 65) return { hrv: 45, restingHR: 70, vo2max: 35 };
+    return { hrv: 40, restingHR: 72, vo2max: 32 };
+  }
+
+  /**
+   * Get baselines with age-appropriate expected values
+   */
+  async getBaselines(): Promise<Baselines> {
+    const profile = await this.fetchProfile();
+    if (!profile?.dateOfBirth) {
+      console.log('⚠️ No profile or date of birth found, using default baselines');
+      throw new Error('No profile');
+    }
+
+    const age = this.calculateAge(profile.dateOfBirth);
+    console.log(`✓ Calculated age: ${age} years`);
+
+    const baselines: Baselines = {
+      expectedHRV: age < 30 ? 65 : age < 40 ? 60 : age < 50 ? 50 : age < 60 ? 45 : 40,
+      expectedRHR: age < 30 ? 62 : age < 40 ? 65 : age < 50 ? 68 : age < 60 ? 70 : 72,
+      expectedVO2max: age < 30 ? 45 : age < 40 ? 42 : age < 50 ? 38 : age < 60 ? 35 : 32,
+      hrMax: 220 - age,
+      updatedAt: new Date(),
+    };
+
+    // Add aliases for compatibility
+    baselines.restingHR = baselines.expectedRHR;
+    baselines.hrv = baselines.expectedHRV;
+    baselines.vo2max = baselines.expectedVO2max;
+
+    console.log(`✓ Baselines for age ${age}:`, {
+      HRV: baselines.expectedHRV,
+      RHR: baselines.expectedRHR,
+      VO2max: baselines.expectedVO2max,
+      HRMax: baselines.hrMax,
+    });
+
+    return baselines;
+  }
+
+  /**
+   * Fetch user profile from AsyncStorage
+   */
+  private async fetchProfile(): Promise<UserProfile | null> {
     try {
-      // Try to load cached baselines
-      const cached = await AsyncStorage.getItem(BASELINES_STORAGE_KEY);
-      if (cached) {
-        const baselines = JSON.parse(cached);
-        console.log('✓ Loaded cached baselines');
-        return baselines;
+      const dobStr = await AsyncStorage.getItem(USER_DOB_KEY);
+      const heightStr = await AsyncStorage.getItem(USER_HEIGHT_KEY);
+
+      if (!dobStr) {
+        console.log('⚠️ No date of birth found in profile');
+        return null;
       }
 
-      // Calculate baselines from historical data
-      const historicalMetrics = await this.loadHistoricalMetrics(7);
-      const dobStr = await AsyncStorage.getItem(USER_DOB_KEY);
-      const dateOfBirth = dobStr ? new Date(dobStr) : undefined;
-
-      const baselines = calculateBaselines(historicalMetrics, dateOfBirth);
-      await AsyncStorage.setItem(BASELINES_STORAGE_KEY, JSON.stringify(baselines));
-
-      console.log('✓ Calculated new baselines');
-      return baselines;
-    } catch (error) {
-      console.error('❌ Failed to get baselines:', error);
-      // Return default baselines
-      return {
-        expectedHRV: 60,
-        expectedRHR: 65,
-        expectedVO2max: 40,
-        hrMax: 180,
-        updatedAt: new Date(),
+      const profile: UserProfile = {
+        dateOfBirth: new Date(dobStr),
+        height: heightStr ? parseFloat(heightStr) : undefined,
       };
+
+      return profile;
+    } catch (error) {
+      console.error('❌ Failed to fetch profile:', error);
+      return null;
     }
   }
+
+  // --- Private helper methods ---
 
   private calculateLoadScore(
     metrics: DailyMetrics,
