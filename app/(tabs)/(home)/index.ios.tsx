@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import EmptyDataView from '@/components/EmptyDataView';
 import HealthKitManager from '@/services/HealthKitManager';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { IconSymbol } from '@/components/IconSymbol';
 import React, { useState, useMemo } from 'react';
 import { calculateBioAgeWithProfile } from '@/utils/bioAge';
@@ -58,37 +58,38 @@ export default function HomeScreen() {
     );
   }, [metrics, baselines, userProfile]);
 
-  // Calculate readiness score (average of Performance Index and Recovery)
+  // Calculate readiness score based on recovery, sleep, and strain
   const readinessScore = useMemo(() => {
     if (!metrics) return 0;
     
-    let score = 0;
-    let count = 0;
-
-    if (metrics.performanceIndex !== undefined) {
-      score += metrics.performanceIndex;
-      count++;
-    }
-
-    if (metrics.recoveryEfficiency !== undefined) {
-      score += metrics.recoveryEfficiency;
-      count++;
-    }
-
-    return count > 0 ? score / count : 0;
+    const recovery = metrics.recoveryEfficiency ?? 50;
+    const sleepHours = (metrics.sleepDuration ?? 420) / 60;
+    const sleep = (sleepHours / 8) * 100;
+    const strain = Math.max(0, 100 - (metrics.loadScore ?? 0));
+    
+    const score = (recovery * 0.5) + (sleep * 0.3) + (strain * 0.2);
+    return Math.max(0, Math.min(100, score));
   }, [metrics]);
 
   const getReadinessColor = (score: number): string => {
-    if (score >= 75) return colors.success;
-    if (score >= 50) return colors.warning;
-    return colors.error;
+    if (score >= 80) return '#10b981';
+    if (score >= 65) return '#f59e0b';
+    if (score >= 50) return '#f97316';
+    return '#ef4444';
   };
 
   const getReadinessLevel = (score: number): string => {
-    if (score >= 75) return 'Excellent';
-    if (score >= 50) return 'Good';
-    if (score >= 25) return 'Fair';
-    return 'Low';
+    if (score >= 80) return 'Excellent';
+    if (score >= 65) return 'Good';
+    if (score >= 50) return 'Fair';
+    return 'Rest Needed';
+  };
+
+  const getReadinessMessage = (score: number): string => {
+    if (score >= 80) return 'You\'re ready for intense training';
+    if (score >= 65) return 'Good day for moderate activity';
+    if (score >= 50) return 'Consider light exercise';
+    return 'Focus on recovery today';
   };
 
   const formatSleep = (sleepMinutes: number | undefined): string => {
@@ -115,7 +116,7 @@ export default function HomeScreen() {
 
   const calculateSleepScore = (): number => {
     if (!metrics?.sleepDuration) return 0;
-    const optimalSleep = 8 * 60; // 8 hours in minutes
+    const optimalSleep = 8 * 60;
     const score = (metrics.sleepDuration / optimalSleep) * 100;
     return Math.min(100, score);
   };
@@ -182,8 +183,9 @@ export default function HomeScreen() {
 
   const readinessColor = getReadinessColor(readinessScore);
   const readinessLevel = getReadinessLevel(readinessScore);
-  const radius = 80;
-  const strokeWidth = 14;
+  const readinessMessage = getReadinessMessage(readinessScore);
+  const radius = 90;
+  const strokeWidth = 20;
   const circumference = 2 * Math.PI * radius;
   const progress = (readinessScore / 100) * circumference;
   const recommendation = getPerformanceRecommendation();
@@ -220,10 +222,17 @@ export default function HomeScreen() {
       >
         {/* Hero: Readiness Circle */}
         <View style={styles.heroCard}>
-          <Text style={styles.heroTitle}>Readiness</Text>
+          <Text style={styles.heroSubtitle}>Today&apos;s Readiness</Text>
           
           <View style={styles.circleContainer}>
             <Svg width={radius * 2 + strokeWidth * 2} height={radius * 2 + strokeWidth * 2}>
+              <Defs>
+                <LinearGradient id="readinessGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <Stop offset="0%" stopColor={readinessColor} stopOpacity="1" />
+                  <Stop offset="100%" stopColor={readinessColor} stopOpacity="0.7" />
+                </LinearGradient>
+              </Defs>
+              
               <Circle
                 cx={radius + strokeWidth}
                 cy={radius + strokeWidth}
@@ -236,7 +245,7 @@ export default function HomeScreen() {
                 cx={radius + strokeWidth}
                 cy={radius + strokeWidth}
                 r={radius}
-                stroke={readinessColor}
+                stroke="url(#readinessGradient)"
                 strokeWidth={strokeWidth}
                 fill="none"
                 strokeDasharray={circumference}
@@ -254,6 +263,8 @@ export default function HomeScreen() {
               <Text style={styles.circleLabel}>{readinessLevel}</Text>
             </View>
           </View>
+          
+          <Text style={styles.heroMessage}>{readinessMessage}</Text>
         </View>
 
         {/* 2x2 Metric Cards Grid */}
@@ -266,7 +277,7 @@ export default function HomeScreen() {
             <IconSymbol
               ios_icon_name="moon.fill"
               android_material_icon_name="bedtime"
-              size={28}
+              size={32}
               color="#fff"
             />
             <Text style={styles.metricValue}>{sleepValue}</Text>
@@ -284,13 +295,13 @@ export default function HomeScreen() {
             <IconSymbol
               ios_icon_name="flame.fill"
               android_material_icon_name="local-fire-department"
-              size={28}
+              size={32}
               color="#fff"
             />
             <Text style={styles.metricValue}>{strainValue}</Text>
             <Text style={styles.metricTitle}>Strain</Text>
             <View style={styles.scoreBar}>
-              <View style={[styles.scoreBarFill, { width: `${strainScore}%` }]} />
+              <View style={[styles.scoreBarFill, { width: `${Math.min(100, strainScore)}%` }]} />
             </View>
           </TouchableOpacity>
 
@@ -302,7 +313,7 @@ export default function HomeScreen() {
             <IconSymbol
               ios_icon_name="heart.fill"
               android_material_icon_name="favorite"
-              size={28}
+              size={32}
               color="#fff"
             />
             <Text style={styles.metricValue}>{recoveryValue}</Text>
@@ -321,7 +332,7 @@ export default function HomeScreen() {
             <IconSymbol
               ios_icon_name="figure.walk"
               android_material_icon_name="directions-walk"
-              size={28}
+              size={32}
               color="#fff"
             />
             <Text style={styles.metricValue}>{bioAgeValue}</Text>
@@ -364,27 +375,27 @@ export default function HomeScreen() {
 }
 
 function getSleepColor(score: number): string {
-  if (score >= 80) return '#6366f1'; // Indigo
-  if (score >= 60) return '#8b5cf6'; // Purple
-  return '#a855f7'; // Light purple
+  if (score >= 80) return '#6366f1';
+  if (score >= 60) return '#8b5cf6';
+  return '#a855f7';
 }
 
 function getStrainColor(score: number): string {
-  if (score >= 70) return '#ef4444'; // Red
-  if (score >= 40) return '#f97316'; // Orange
-  return '#fb923c'; // Light orange
+  if (score >= 70) return '#ef4444';
+  if (score >= 40) return '#f97316';
+  return '#fb923c';
 }
 
 function getRecoveryColor(score: number): string {
-  if (score >= 75) return '#10b981'; // Green
-  if (score >= 50) return '#22c55e'; // Light green
-  return '#84cc16'; // Lime
+  if (score >= 75) return '#10b981';
+  if (score >= 50) return '#22c55e';
+  return '#84cc16';
 }
 
 function getBioAgeColor(score: number): string {
-  if (score >= 60) return '#06b6d4'; // Cyan
-  if (score >= 40) return '#0ea5e9'; // Sky blue
-  return '#3b82f6'; // Blue
+  if (score >= 60) return '#06b6d4';
+  if (score >= 40) return '#0ea5e9';
+  return '#3b82f6';
 }
 
 const styles = StyleSheet.create({
@@ -416,16 +427,17 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     alignItems: 'center',
   },
-  heroTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.text,
+  heroSubtitle: {
+    fontSize: 17,
+    fontWeight: '500',
+    color: colors.textSecondary,
     marginBottom: 24,
   },
   circleContainer: {
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 20,
   },
   circleTextContainer: {
     position: 'absolute',
@@ -433,13 +445,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   circleValue: {
-    fontSize: 56,
+    fontSize: 64,
     fontWeight: 'bold',
   },
   circleLabel: {
     fontSize: 18,
+    fontWeight: '600',
     color: colors.textSecondary,
     marginTop: 4,
+  },
+  heroMessage: {
+    fontSize: 15,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    paddingHorizontal: 20,
   },
   metricsGrid: {
     flexDirection: 'row',
@@ -484,6 +503,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderRadius: 20,
     padding: 24,
+    marginBottom: 20,
   },
   performanceHeader: {
     flexDirection: 'row',
