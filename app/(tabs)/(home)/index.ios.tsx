@@ -26,6 +26,7 @@ export default function HomeScreen() {
   const [generatingMockData, setGeneratingMockData] = useState(false);
   const router = useRouter();
 
+  // Auto-generate mock data on first load if no data exists
   useEffect(() => {
     const autoGenerateMockData = async () => {
       if (!loading && !metrics && !generatingMockData) {
@@ -79,6 +80,7 @@ export default function HomeScreen() {
     }
   };
 
+  // Calculate readiness score
   const calculateReadinessScore = (): number => {
     if (!metrics) return 0;
     
@@ -252,6 +254,7 @@ export default function HomeScreen() {
           />
         }
       >
+        {/* Section 1: Readiness Hero Circle */}
         <View style={styles.heroSection}>
           <Text style={styles.heroTitle}>Today's Readiness</Text>
           
@@ -299,8 +302,16 @@ export default function HomeScreen() {
           <Text style={styles.heroMessage}>{readinessMessage}</Text>
         </View>
 
+        {/* Section 2: 4 Metric Cards Grid */}
         <View style={styles.metricsGrid}>
-          <TouchableOpacity style={styles.metricCard} activeOpacity={0.7}>
+          <TouchableOpacity 
+            style={styles.metricCard} 
+            activeOpacity={0.7}
+            onPress={() => {
+              console.log('HomeScreen: User tapped Sleep card, navigating to sleep-detail');
+              router.push('/sleep-detail');
+            }}
+          >
             <View style={styles.metricHeader}>
               <IconSymbol
                 ios_icon_name="moon.fill"
@@ -369,6 +380,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Section 3: Performance Index Card */}
         <View style={styles.performanceCard}>
           <View style={styles.performanceHeader}>
             <Text style={styles.performanceTitle}>Performance Index</Text>
@@ -377,6 +389,7 @@ export default function HomeScreen() {
           <Text style={styles.performanceMessage}>{performanceMessage}</Text>
         </View>
 
+        {/* Regenerate Mock Data Button */}
         <TouchableOpacity 
           style={styles.regenerateButton}
           onPress={handleGenerateMockData}

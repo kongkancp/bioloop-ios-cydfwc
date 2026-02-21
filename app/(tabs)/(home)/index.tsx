@@ -306,7 +306,14 @@ export default function HomeScreen() {
 
         {/* Section 2: 4 Metric Cards Grid */}
         <View style={styles.metricsGrid}>
-          <TouchableOpacity style={styles.metricCard} activeOpacity={0.7}>
+          <TouchableOpacity 
+            style={styles.metricCard} 
+            activeOpacity={0.7}
+            onPress={() => {
+              console.log('HomeScreen: User tapped Sleep card, navigating to sleep-detail');
+              router.push('/sleep-detail');
+            }}
+          >
             <View style={styles.metricHeader}>
               <IconSymbol
                 ios_icon_name="moon.fill"
