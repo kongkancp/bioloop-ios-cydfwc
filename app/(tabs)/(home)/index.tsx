@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDailySync } from '@/hooks/useDailySync';
 import {
   View,
@@ -20,11 +20,34 @@ import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { IconSymbol } from '@/components/IconSymbol';
 import BioLoopDebugger from '@/utils/debugHelper';
 import { calculateBioAgeWithProfile } from '@/utils/bioAge';
+import MockDataGenerator from '@/services/MockDataGenerator';
 
 export default function HomeScreen() {
   const { metrics, baselines, userProfile, loading, syncing, syncNow } = useDailySync();
   const [refreshing, setRefreshing] = useState(false);
+  const [generatingMockData, setGeneratingMockData] = useState(false);
   const router = useRouter();
+
+  // Auto-generate mock data on first load if no data exists
+  useEffect(() => {
+    const autoGenerateMockData = async () => {
+      if (!loading && !metrics && !generatingMockData) {
+        console.log('HomeScreen: No data found, auto-generating mock data to simulate HealthKit permission granted');
+        setGeneratingMockData(true);
+        try {
+          await MockDataGenerator.generateAllData();
+          console.log('HomeScreen: Mock data generated, triggering sync');
+          await syncNow(true);
+        } catch (error) {
+          console.error('HomeScreen: Failed to generate mock data:', error);
+        } finally {
+          setGeneratingMockData(false);
+        }
+      }
+    };
+
+    autoGenerateMockData();
+  }, [loading, metrics, generatingMockData, syncNow]);
 
   const handleRefresh = async () => {
     console.log('HomeScreen: Pull-to-refresh triggered');
@@ -45,12 +68,26 @@ export default function HomeScreen() {
     }
   };
 
+  const handleGenerateMockData = async () => {
+    console.log('HomeScreen: User tapped Generate Mock Data button');
+    setGeneratingMockData(true);
+    try {
+      await MockDataGenerator.generateAllData();
+      console.log('HomeScreen: Mock data generated, triggering sync');
+      await syncNow(true);
+    } catch (error) {
+      console.error('HomeScreen: Failed to generate mock data:', error);
+    } finally {
+      setGeneratingMockData(false);
+    }
+  };
+
   // Calculate readiness score
   const calculateReadinessScore = (): number => {
     if (!metrics) return 0;
     
     const recovery = metrics.recoveryEfficiency ?? 50;
-    const sleepScore = ((metrics.sleepDuration ?? 420) / 480) * 100; // 8 hours = 480 min
+    const sleepScore = ((metrics.sleepDuration ?? 420) / 480) * 100;
     const strain = Math.max(0, 100 - (metrics.loadScore ?? 0));
     
     const readiness = (recovery * 0.5) + (sleepScore * 0.3) + (strain * 0.2);
@@ -59,7 +96,6 @@ export default function HomeScreen() {
 
   const readinessScore = calculateReadinessScore();
 
-  // Get readiness level
   const getReadinessLevel = (score: number): string => {
     if (score >= 80) return 'Excellent';
     if (score >= 65) return 'Good';
@@ -69,7 +105,6 @@ export default function HomeScreen() {
 
   const readinessLevel = getReadinessLevel(readinessScore);
 
-  // Get readiness message
   const getReadinessMessage = (score: number): string => {
     if (score >= 80) return 'Ready for intense training';
     if (score >= 65) return 'Good for moderate activity';
@@ -79,7 +114,6 @@ export default function HomeScreen() {
 
   const readinessMessage = getReadinessMessage(readinessScore);
 
-  // Get gradient colors based on score
   const getGradientColors = (score: number): string[] => {
     if (score >= 80) return ['#10b981', '#3b82f6'];
     if (score >= 50) return ['#3b82f6', '#f97316'];
@@ -88,7 +122,6 @@ export default function HomeScreen() {
 
   const gradientColors = getGradientColors(readinessScore);
 
-  // Get score color
   const getScoreColor = (score: number): string => {
     if (score >= 80) return '#10b981';
     if (score >= 65) return '#3b82f6';
@@ -98,7 +131,6 @@ export default function HomeScreen() {
 
   const scoreColor = getScoreColor(readinessScore);
 
-  // Calculate BioAge for display
   const bioAgeDisplay = metrics && baselines && userProfile?.dateOfBirth
     ? (() => {
         const age = Math.floor((Date.now() - userProfile.dateOfBirth.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
@@ -127,7 +159,6 @@ export default function HomeScreen() {
       })()
     : 50;
 
-  // Format sleep duration
   const formatSleep = (minutes: number | undefined): string => {
     if (!minutes) return '--';
     const hours = Math.floor(minutes / 60);
@@ -138,18 +169,14 @@ export default function HomeScreen() {
   const sleepDisplay = formatSleep(metrics?.sleepDuration);
   const sleepScore = metrics?.sleepDuration ? Math.min(100, (metrics.sleepDuration / 480) * 100) : 0;
 
-  // Format strain
   const strainDisplay = metrics?.loadScore ? Math.round(metrics.loadScore).toString() : '--';
   const strainScore = metrics?.loadScore ?? 0;
 
-  // Format recovery
   const recoveryDisplay = metrics?.recoveryEfficiency ? `${Math.round(metrics.recoveryEfficiency)}%` : '--';
   const recoveryScore = metrics?.recoveryEfficiency ?? 0;
 
-  // Format BioAge
   const bioAgeDisplayText = bioAgeDisplay ? `${bioAgeDisplay.toFixed(1)} yrs` : '--';
 
-  // Format Performance Index
   const performanceDisplay = metrics?.performanceIndex ? metrics.performanceIndex.toFixed(1) : '--';
   const performanceMessage = metrics?.performanceIndex
     ? (() => {
@@ -161,13 +188,22 @@ export default function HomeScreen() {
       })()
     : 'Sync data to see your performance';
 
-  if (loading) {
+  if (loading || generatingMockData) {
+    const loadingText = generatingMockData 
+      ? 'Generating mock health data...' 
+      : 'Loading your health data...';
+    
     return (
       <SafeAreaView style={styles.container}>
         <Stack.Screen options={{ title: 'Home', headerShown: false }} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading your health data...</Text>
+          <Text style={styles.loadingText}>{loadingText}</Text>
+          {generatingMockData && (
+            <Text style={styles.loadingSubtext}>
+              Simulating HealthKit permission granted...
+            </Text>
+          )}
         </View>
       </SafeAreaView>
     );
@@ -177,14 +213,25 @@ export default function HomeScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <Stack.Screen options={{ title: 'Home', headerShown: false }} />
-        <EmptyDataView
-          icon="favorite"
-          iosIcon="heart.text.square"
-          title="No Health Data"
-          message="Grant HealthKit permissions to start tracking your health metrics."
-          actionTitle="Grant Permission"
-          action={handleRequestPermission}
-        />
+        <View style={styles.emptyContainer}>
+          <EmptyDataView
+            icon="favorite"
+            iosIcon="heart.text.square"
+            title="No Health Data"
+            message="Grant HealthKit permissions to start tracking your health metrics, or generate mock data to see how the app works."
+            actionTitle="Grant Permission"
+            action={handleRequestPermission}
+          />
+          <TouchableOpacity 
+            style={styles.mockDataButton}
+            onPress={handleGenerateMockData}
+            disabled={generatingMockData}
+          >
+            <Text style={styles.mockDataButtonText}>
+              {generatingMockData ? 'Generating...' : 'Generate Mock Data'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
     );
   }
@@ -222,7 +269,6 @@ export default function HomeScreen() {
                 </LinearGradient>
               </Defs>
               
-              {/* Background circle */}
               <Circle
                 cx={radius + strokeWidth / 2}
                 cy={radius + strokeWidth / 2}
@@ -232,7 +278,6 @@ export default function HomeScreen() {
                 fill="none"
               />
               
-              {/* Progress circle */}
               <Circle
                 cx={radius + strokeWidth / 2}
                 cy={radius + strokeWidth / 2}
@@ -261,7 +306,6 @@ export default function HomeScreen() {
 
         {/* Section 2: 4 Metric Cards Grid */}
         <View style={styles.metricsGrid}>
-          {/* Sleep Card */}
           <TouchableOpacity style={styles.metricCard} activeOpacity={0.7}>
             <View style={styles.metricHeader}>
               <IconSymbol
@@ -278,7 +322,6 @@ export default function HomeScreen() {
             <Text style={styles.metricValue}>{sleepDisplay}</Text>
           </TouchableOpacity>
 
-          {/* Strain Card */}
           <TouchableOpacity style={styles.metricCard} activeOpacity={0.7}>
             <View style={styles.metricHeader}>
               <IconSymbol
@@ -295,7 +338,6 @@ export default function HomeScreen() {
             <Text style={styles.metricValue}>{strainDisplay}</Text>
           </TouchableOpacity>
 
-          {/* Recovery Card */}
           <TouchableOpacity style={styles.metricCard} activeOpacity={0.7}>
             <View style={styles.metricHeader}>
               <IconSymbol
@@ -312,7 +354,6 @@ export default function HomeScreen() {
             <Text style={styles.metricValue}>{recoveryDisplay}</Text>
           </TouchableOpacity>
 
-          {/* BioAge Card */}
           <TouchableOpacity 
             style={styles.metricCard} 
             activeOpacity={0.7}
@@ -342,6 +383,23 @@ export default function HomeScreen() {
           </View>
           <Text style={styles.performanceMessage}>{performanceMessage}</Text>
         </View>
+
+        {/* Regenerate Mock Data Button */}
+        <TouchableOpacity 
+          style={styles.regenerateButton}
+          onPress={handleGenerateMockData}
+          disabled={generatingMockData}
+        >
+          <IconSymbol
+            ios_icon_name="arrow.clockwise"
+            android_material_icon_name="refresh"
+            size={20}
+            color={colors.primary}
+          />
+          <Text style={styles.regenerateButtonText}>
+            {generatingMockData ? 'Generating...' : 'Regenerate Mock Data'}
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -369,8 +427,32 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textSecondary,
   },
+  loadingSubtext: {
+    marginTop: 8,
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mockDataButton: {
+    marginTop: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  mockDataButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.primary,
+  },
   
-  // Hero Section
   heroSection: {
     alignItems: 'center',
     paddingTop: 20,
@@ -411,7 +493,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   
-  // Metrics Grid
   metricsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -448,7 +529,6 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   
-  // Performance Card
   performanceCard: {
     backgroundColor: colors.card,
     borderRadius: 16,
@@ -475,5 +555,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     lineHeight: 20,
+  },
+  
+  regenerateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 8,
+  },
+  regenerateButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.primary,
   },
 });
