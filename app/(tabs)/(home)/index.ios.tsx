@@ -1,7 +1,8 @@
 
+import React, { useState } from 'react';
 import { useDailySync } from '@/hooks/useDailySync';
 import { colors } from '@/styles/commonStyles';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   View,
@@ -14,264 +15,331 @@ import {
 } from 'react-native';
 import EmptyDataView from '@/components/EmptyDataView';
 import HealthKitManager from '@/services/HealthKitManager';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { IconSymbol } from '@/components/IconSymbol';
-import React, { useState } from 'react';
 import BioLoopDebugger from '@/utils/debugHelper';
 
 export default function HomeScreen() {
-  const { metrics, loading, syncing, syncNow } = useDailySync();
+  const { metrics, baselines, userProfile, loading, syncing, syncNow } = useDailySync();
   const [refreshing, setRefreshing] = useState(false);
-
-  const handleSync = async () => {
-    BioLoopDebugger.log('HomeScreen', 'User tapped Sync button');
-    await syncNow(true);
-  };
+  const router = useRouter();
 
   const handleRefresh = async () => {
-    BioLoopDebugger.log('HomeScreen', 'User pulled to refresh');
+    console.log('HomeScreen: Pull-to-refresh triggered');
     setRefreshing(true);
     await syncNow(true);
     setRefreshing(false);
   };
 
   const handleRequestPermission = async () => {
-    BioLoopDebugger.log('HomeScreen', 'User tapped Request Permission button');
+    console.log('HomeScreen: User tapped Request Permission button');
     try {
       const granted = await HealthKitManager.requestAuthorization();
       if (granted) {
-        BioLoopDebugger.success('HomeScreen', 'HealthKit permission granted');
         await syncNow(true);
-      } else {
-        BioLoopDebugger.warn('HomeScreen', 'HealthKit permission denied');
       }
     } catch (error) {
-      BioLoopDebugger.error('HomeScreen', 'Failed to request HealthKit permission', error);
+      console.error('HomeScreen: Permission request failed', error);
     }
   };
 
-  const handleDebugInfo = () => {
-    BioLoopDebugger.log('HomeScreen', 'User tapped Debug Info button');
-    BioLoopDebugger.printStatus();
-  };
-
+  // Calculate readiness score
   const calculateReadinessScore = (): number => {
     if (!metrics) return 0;
     
-    let score = 50;
+    const recovery = metrics.recoveryEfficiency ?? 50;
+    const sleepScore = ((metrics.sleepDuration ?? 420) / 480) * 100; // 8 hours = 480 min
+    const strain = Math.max(0, 100 - (metrics.loadScore ?? 0));
     
-    if (metrics.performanceIndex !== undefined) {
-      score += (metrics.performanceIndex - 50) * 0.5;
-    }
-    
-    if (metrics.recoveryEfficiency !== undefined) {
-      score += (metrics.recoveryEfficiency - 50) * 0.3;
-    }
-    
-    if (metrics.acwr !== undefined) {
-      const acwrScore = metrics.acwr >= 0.8 && metrics.acwr <= 1.3 ? 20 : 0;
-      score += acwrScore * 0.2;
-    }
-    
-    return Math.max(0, Math.min(100, score));
-  };
-
-  const getReadinessColor = (score: number): string => {
-    if (score >= 75) return colors.success;
-    if (score >= 50) return colors.warning;
-    return colors.error;
-  };
-
-  const getReadinessLevel = (score: number): string => {
-    if (score >= 75) return 'Excellent';
-    if (score >= 50) return 'Good';
-    if (score >= 25) return 'Fair';
-    return 'Poor';
-  };
-
-  const getGreeting = (): string => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good Morning';
-    if (hour < 18) return 'Good Afternoon';
-    return 'Good Evening';
-  };
-
-  const getCurrentDateString = (): string => {
-    const date = new Date();
-    const options: Intl.DateTimeFormatOptions = { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    };
-    return date.toLocaleDateString('en-US', options);
+    const readiness = (recovery * 0.5) + (sleepScore * 0.3) + (strain * 0.2);
+    return Math.max(0, Math.min(100, readiness));
   };
 
   const readinessScore = calculateReadinessScore();
-  const readinessColor = getReadinessColor(readinessScore);
-  const readinessLevel = getReadinessLevel(readinessScore);
-  const greetingText = getGreeting();
-  const dateString = getCurrentDateString();
 
-  const circumference = 2 * Math.PI * 70;
-  const strokeDashoffset = circumference - (readinessScore / 100) * circumference;
+  // Get readiness level
+  const getReadinessLevel = (score: number): string => {
+    if (score >= 80) return 'Excellent';
+    if (score >= 65) return 'Good';
+    if (score >= 50) return 'Fair';
+    return 'Rest Needed';
+  };
+
+  const readinessLevel = getReadinessLevel(readinessScore);
+
+  // Get readiness message
+  const getReadinessMessage = (score: number): string => {
+    if (score >= 80) return 'Ready for intense training';
+    if (score >= 65) return 'Good for moderate activity';
+    if (score >= 50) return 'Consider light exercise';
+    return 'Focus on recovery';
+  };
+
+  const readinessMessage = getReadinessMessage(readinessScore);
+
+  // Get gradient colors based on score
+  const getGradientColors = (score: number): string[] => {
+    if (score >= 80) return ['#10b981', '#3b82f6'];
+    if (score >= 50) return ['#3b82f6', '#f97316'];
+    return ['#f97316', '#ef4444'];
+  };
+
+  const gradientColors = getGradientColors(readinessScore);
+
+  // Get score color
+  const getScoreColor = (score: number): string => {
+    if (score >= 80) return '#10b981';
+    if (score >= 65) return '#3b82f6';
+    if (score >= 50) return '#f97316';
+    return '#ef4444';
+  };
+
+  const scoreColor = getScoreColor(readinessScore);
+
+  // Calculate BioAge for display
+  const bioAgeDisplay = metrics && baselines && userProfile?.dateOfBirth
+    ? (() => {
+        const age = Math.floor((Date.now() - userProfile.dateOfBirth.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+        const indices = {
+          autonomic: metrics.autonomicIndex ?? null,
+          vo2: metrics.vo2Index ?? null,
+          sleep: metrics.sleepIndex ?? null,
+          workout: metrics.workoutIndex ?? null,
+          bmi: metrics.bmiIndex ?? null,
+        };
+        const componentCount = [indices.autonomic, indices.vo2, indices.sleep, indices.workout, indices.bmi]
+          .filter(x => x !== null).length;
+        
+        if (componentCount >= 3) {
+          return metrics.bioAgeSmoothed ?? metrics.bioAge ?? age;
+        }
+        return null;
+      })()
+    : null;
+
+  const bioAgeScore = bioAgeDisplay && userProfile?.dateOfBirth
+    ? (() => {
+        const age = Math.floor((Date.now() - userProfile.dateOfBirth.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+        const ageGap = age - bioAgeDisplay;
+        return Math.max(0, Math.min(100, 50 + ageGap * 5));
+      })()
+    : 50;
+
+  // Format sleep duration
+  const formatSleep = (minutes: number | undefined): string => {
+    if (!minutes) return '--';
+    const hours = Math.floor(minutes / 60);
+    const mins = Math.round(minutes % 60);
+    return `${hours}h ${mins}m`;
+  };
+
+  const sleepDisplay = formatSleep(metrics?.sleepDuration);
+  const sleepScore = metrics?.sleepDuration ? Math.min(100, (metrics.sleepDuration / 480) * 100) : 0;
+
+  // Format strain
+  const strainDisplay = metrics?.loadScore ? Math.round(metrics.loadScore).toString() : '--';
+  const strainScore = metrics?.loadScore ?? 0;
+
+  // Format recovery
+  const recoveryDisplay = metrics?.recoveryEfficiency ? `${Math.round(metrics.recoveryEfficiency)}%` : '--';
+  const recoveryScore = metrics?.recoveryEfficiency ?? 0;
+
+  // Format BioAge
+  const bioAgeDisplayText = bioAgeDisplay ? `${bioAgeDisplay.toFixed(1)} yrs` : '--';
+
+  // Format Performance Index
+  const performanceDisplay = metrics?.performanceIndex ? metrics.performanceIndex.toFixed(1) : '--';
+  const performanceMessage = metrics?.performanceIndex
+    ? (() => {
+        const pi = metrics.performanceIndex;
+        if (pi >= 80) return 'Peak performance - maintain intensity';
+        if (pi >= 65) return 'Strong performance - push harder';
+        if (pi >= 50) return 'Moderate performance - steady progress';
+        return 'Building phase - focus on recovery';
+      })()
+    : 'Sync data to see your performance';
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <Stack.Screen options={{ title: 'Home', headerShown: false }} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Loading your health data...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!metrics) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <Stack.Screen options={{ title: 'Home', headerShown: false }} />
+        <EmptyDataView
+          icon="favorite"
+          iosIcon="heart.text.square"
+          title="No Health Data"
+          message="Grant HealthKit permissions to start tracking your health metrics."
+          actionTitle="Grant Permission"
+          action={handleRequestPermission}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  const radius = 100;
+  const strokeWidth = 24;
+  const circumference = 2 * Math.PI * radius;
+  const progress = (readinessScore / 100) * circumference;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <Stack.Screen 
-        options={{ 
-          headerShown: true,
-          title: 'Home',
-          headerRight: () => (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <TouchableOpacity onPress={handleDebugInfo}>
-                <IconSymbol 
-                  ios_icon_name="info.circle" 
-                  android_material_icon_name="info" 
-                  size={24} 
-                  color={colors.text} 
-                />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleSync} disabled={syncing}>
-                <IconSymbol 
-                  ios_icon_name="arrow.clockwise" 
-                  android_material_icon_name="refresh" 
-                  size={24} 
-                  color={syncing ? colors.textSecondary : colors.text} 
-                />
-              </TouchableOpacity>
-            </View>
-          ),
-        }} 
-      />
+      <Stack.Screen options={{ title: 'Home', headerShown: false }} />
       
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+          />
         }
       >
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>Loading your health data...</Text>
-          </View>
-        ) : !metrics ? (
-          <EmptyDataView
-            icon="heart"
-            iosIcon="heart.fill"
-            title="No Health Data"
-            message="Grant HealthKit permissions to see your daily readiness score and health metrics."
-            actionTitle="Grant Permission"
-            action={handleRequestPermission}
-          />
-        ) : (
-          <>
-            <View style={styles.header}>
-              <Text style={styles.greeting}>{greetingText}</Text>
-              <Text style={styles.date}>{dateString}</Text>
-            </View>
-
-            <View style={styles.readinessCard}>
-              <Text style={styles.cardTitle}>Daily Readiness</Text>
+        {/* Section 1: Readiness Hero Circle */}
+        <View style={styles.heroSection}>
+          <Text style={styles.heroTitle}>Today's Readiness</Text>
+          
+          <View style={styles.circleContainer}>
+            <Svg width={radius * 2 + strokeWidth} height={radius * 2 + strokeWidth}>
+              <Defs>
+                <LinearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <Stop offset="0%" stopColor={gradientColors[0]} />
+                  <Stop offset="100%" stopColor={gradientColors[1]} />
+                </LinearGradient>
+              </Defs>
               
-              <View style={styles.scoreContainer}>
-                <Svg width={180} height={180}>
-                  <Circle
-                    cx={90}
-                    cy={90}
-                    r={70}
-                    stroke={colors.border}
-                    strokeWidth={12}
-                    fill="none"
-                  />
-                  <Circle
-                    cx={90}
-                    cy={90}
-                    r={70}
-                    stroke={readinessColor}
-                    strokeWidth={12}
-                    fill="none"
-                    strokeDasharray={circumference}
-                    strokeDashoffset={strokeDashoffset}
-                    strokeLinecap="round"
-                    transform={`rotate(-90 90 90)`}
-                  />
-                </Svg>
-                
-                <View style={styles.scoreTextContainer}>
-                  <Text style={[styles.scoreValue, { color: readinessColor }]}>
-                    {Math.round(readinessScore)}
-                  </Text>
-                  <Text style={styles.scoreLabel}>{readinessLevel}</Text>
-                </View>
-              </View>
+              {/* Background circle */}
+              <Circle
+                cx={radius + strokeWidth / 2}
+                cy={radius + strokeWidth / 2}
+                r={radius}
+                stroke={colors.border}
+                strokeWidth={strokeWidth}
+                fill="none"
+              />
+              
+              {/* Progress circle */}
+              <Circle
+                cx={radius + strokeWidth / 2}
+                cy={radius + strokeWidth / 2}
+                r={radius}
+                stroke="url(#gradient)"
+                strokeWidth={strokeWidth}
+                fill="none"
+                strokeDasharray={circumference}
+                strokeDashoffset={circumference - progress}
+                strokeLinecap="round"
+                rotation="-90"
+                origin={`${radius + strokeWidth / 2}, ${radius + strokeWidth / 2}`}
+              />
+            </Svg>
+            
+            <View style={styles.circleContent}>
+              <Text style={[styles.scoreNumber, { color: scoreColor }]}>
+                {Math.round(readinessScore)}
+              </Text>
+              <Text style={styles.scoreLevel}>{readinessLevel}</Text>
             </View>
+          </View>
+          
+          <Text style={styles.heroMessage}>{readinessMessage}</Text>
+        </View>
 
-            <View style={styles.metricsGrid}>
-              {metrics.performanceIndex !== undefined && (
-                <View style={styles.metricCard}>
-                  <IconSymbol 
-                    ios_icon_name="chart.line.uptrend.xyaxis" 
-                    android_material_icon_name="trending-up" 
-                    size={24} 
-                    color={colors.primary} 
-                  />
-                  <Text style={styles.metricValue}>
-                    {metrics.performanceIndex.toFixed(1)}
-                  </Text>
-                  <Text style={styles.metricLabel}>Performance</Text>
-                </View>
-              )}
-
-              {metrics.recoveryEfficiency !== undefined && (
-                <View style={styles.metricCard}>
-                  <IconSymbol 
-                    ios_icon_name="arrow.clockwise" 
-                    android_material_icon_name="refresh" 
-                    size={24} 
-                    color={colors.success} 
-                  />
-                  <Text style={styles.metricValue}>
-                    {metrics.recoveryEfficiency.toFixed(0)}%
-                  </Text>
-                  <Text style={styles.metricLabel}>Recovery</Text>
-                </View>
-              )}
-
-              {metrics.restingHR !== undefined && (
-                <View style={styles.metricCard}>
-                  <IconSymbol 
-                    ios_icon_name="heart.fill" 
-                    android_material_icon_name="favorite" 
-                    size={24} 
-                    color={colors.error} 
-                  />
-                  <Text style={styles.metricValue}>
-                    {Math.round(metrics.restingHR)}
-                  </Text>
-                  <Text style={styles.metricLabel}>Resting HR</Text>
-                </View>
-              )}
-
-              {metrics.hrv !== undefined && (
-                <View style={styles.metricCard}>
-                  <IconSymbol 
-                    ios_icon_name="waveform.path.ecg" 
-                    android_material_icon_name="show-chart" 
-                    size={24} 
-                    color={colors.warning} 
-                  />
-                  <Text style={styles.metricValue}>
-                    {Math.round(metrics.hrv)}
-                  </Text>
-                  <Text style={styles.metricLabel}>HRV</Text>
-                </View>
-              )}
+        {/* Section 2: 4 Metric Cards Grid */}
+        <View style={styles.metricsGrid}>
+          {/* Sleep Card */}
+          <TouchableOpacity style={styles.metricCard} activeOpacity={0.7}>
+            <View style={styles.metricHeader}>
+              <IconSymbol
+                ios_icon_name="moon.fill"
+                android_material_icon_name="bedtime"
+                size={24}
+                color={getScoreColor(sleepScore)}
+              />
+              <Text style={[styles.metricScore, { color: getScoreColor(sleepScore) }]}>
+                {Math.round(sleepScore)}
+              </Text>
             </View>
-          </>
-        )}
+            <Text style={styles.metricTitle}>Sleep</Text>
+            <Text style={styles.metricValue}>{sleepDisplay}</Text>
+          </TouchableOpacity>
+
+          {/* Strain Card */}
+          <TouchableOpacity style={styles.metricCard} activeOpacity={0.7}>
+            <View style={styles.metricHeader}>
+              <IconSymbol
+                ios_icon_name="flame.fill"
+                android_material_icon_name="local-fire-department"
+                size={24}
+                color={getScoreColor(100 - strainScore)}
+              />
+              <Text style={[styles.metricScore, { color: getScoreColor(100 - strainScore) }]}>
+                {Math.round(100 - strainScore)}
+              </Text>
+            </View>
+            <Text style={styles.metricTitle}>Strain</Text>
+            <Text style={styles.metricValue}>{strainDisplay}</Text>
+          </TouchableOpacity>
+
+          {/* Recovery Card */}
+          <TouchableOpacity style={styles.metricCard} activeOpacity={0.7}>
+            <View style={styles.metricHeader}>
+              <IconSymbol
+                ios_icon_name="heart.fill"
+                android_material_icon_name="favorite"
+                size={24}
+                color={getScoreColor(recoveryScore)}
+              />
+              <Text style={[styles.metricScore, { color: getScoreColor(recoveryScore) }]}>
+                {Math.round(recoveryScore)}
+              </Text>
+            </View>
+            <Text style={styles.metricTitle}>Recovery</Text>
+            <Text style={styles.metricValue}>{recoveryDisplay}</Text>
+          </TouchableOpacity>
+
+          {/* BioAge Card */}
+          <TouchableOpacity 
+            style={styles.metricCard} 
+            activeOpacity={0.7}
+            onPress={() => router.push('/(tabs)/biology')}
+          >
+            <View style={styles.metricHeader}>
+              <IconSymbol
+                ios_icon_name="figure.walk"
+                android_material_icon_name="directions-walk"
+                size={24}
+                color={getScoreColor(bioAgeScore)}
+              />
+              <Text style={[styles.metricScore, { color: getScoreColor(bioAgeScore) }]}>
+                {Math.round(bioAgeScore)}
+              </Text>
+            </View>
+            <Text style={styles.metricTitle}>BioAge</Text>
+            <Text style={styles.metricValue}>{bioAgeDisplayText}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Section 3: Performance Index Card */}
+        <View style={styles.performanceCard}>
+          <View style={styles.performanceHeader}>
+            <Text style={styles.performanceTitle}>Performance Index</Text>
+            <Text style={styles.performanceValue}>{performanceDisplay}</Text>
+          </View>
+          <Text style={styles.performanceMessage}>{performanceMessage}</Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -299,55 +367,54 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textSecondary,
   },
-  header: {
+  
+  // Hero Section
+  heroSection: {
+    alignItems: 'center',
+    paddingTop: 20,
+    marginBottom: 32,
+  },
+  heroTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: colors.textSecondary,
     marginBottom: 24,
   },
-  greeting: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  date: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  readinessCard: {
-    backgroundColor: colors.card,
-    borderRadius: 20,
-    padding: 24,
-    marginBottom: 20,
-    alignItems: 'center',
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 20,
-  },
-  scoreContainer: {
+  circleContainer: {
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 20,
   },
-  scoreTextContainer: {
+  circleContent: {
     position: 'absolute',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  scoreValue: {
-    fontSize: 48,
+  scoreNumber: {
+    fontSize: 64,
     fontWeight: 'bold',
+    lineHeight: 64,
   },
-  scoreLabel: {
-    fontSize: 16,
+  scoreLevel: {
+    fontSize: 18,
+    fontWeight: '600',
     color: colors.textSecondary,
     marginTop: 4,
   },
+  heroMessage: {
+    fontSize: 15,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    paddingHorizontal: 40,
+  },
+  
+  // Metrics Grid
   metricsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 16,
+    marginBottom: 20,
   },
   metricCard: {
     flex: 1,
@@ -355,17 +422,56 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderRadius: 16,
     padding: 16,
+    height: 140,
+  },
+  metricHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 12,
+  },
+  metricScore: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  metricTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
   },
   metricValue: {
     fontSize: 24,
     fontWeight: 'bold',
     color: colors.text,
-    marginTop: 8,
   },
-  metricLabel: {
-    fontSize: 12,
+  
+  // Performance Card
+  performanceCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+  },
+  performanceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  performanceTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  performanceValue: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: colors.primary,
+  },
+  performanceMessage: {
+    fontSize: 14,
     color: colors.textSecondary,
-    marginTop: 4,
+    lineHeight: 20,
   },
 });
