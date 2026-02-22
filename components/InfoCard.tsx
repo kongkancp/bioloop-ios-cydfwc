@@ -3,6 +3,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
+import { Colors } from '@/constants/Colors';
 
 export type Importance = 'critical' | 'high' | 'medium';
 
@@ -34,7 +35,7 @@ export default function InfoCard({
             ios_icon_name={icon}
             android_material_icon_name={icon}
             size={24}
-            color={colors.primary}
+            color={Colors.accentBlue}
           />
           <Text style={styles.title}>{title}</Text>
         </View>
@@ -56,7 +57,7 @@ export default function InfoCard({
         </View>
         <View style={styles.valueColumnRight}>
           <Text style={styles.valueLabelRight}>Your Value</Text>
-          <Text style={[styles.valueText, { color: colors.primary }]}>
+          <Text style={[styles.valueText, { color: Colors.accentBlue }]}>
             {yourValue}
           </Text>
         </View>
@@ -68,13 +69,13 @@ export default function InfoCard({
 function getImportanceColor(importance: Importance): string {
   switch (importance) {
     case 'critical':
-      return '#FF3B30';
+      return Colors.accentRed;
     case 'high':
-      return '#FF9500';
+      return Colors.accentOrange;
     case 'medium':
-      return '#007AFF';
+      return Colors.accentBlue;
     default:
-      return '#007AFF';
+      return Colors.accentBlue;
   }
 }
 
@@ -93,7 +94,7 @@ function getImportanceLabel(importance: Importance): string {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.cardBackground,
+    backgroundColor: Colors.bgCard,
     borderRadius: 16,
     padding: 16,
     borderWidth: 2,
@@ -113,7 +114,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 17,
     fontWeight: '600',
-    color: colors.text,
+    color: Colors.textPrimary,
   },
   badge: {
     paddingHorizontal: 8,
@@ -126,13 +127,13 @@ const styles = StyleSheet.create({
   },
   description: {
     fontSize: 15,
-    color: colors.secondaryText,
+    color: Colors.textMuted,
     lineHeight: 22,
     marginBottom: 16,
   },
   divider: {
     height: 1,
-    backgroundColor: colors.border,
+    backgroundColor: Colors.borderSubtle,
     marginBottom: 16,
   },
   valuesRow: {
@@ -148,17 +149,17 @@ const styles = StyleSheet.create({
   },
   valueLabel: {
     fontSize: 12,
-    color: colors.secondaryText,
+    color: Colors.textMuted,
     marginBottom: 4,
   },
   valueLabelRight: {
     fontSize: 12,
-    color: colors.secondaryText,
+    color: Colors.textMuted,
     marginBottom: 4,
   },
   valueText: {
     fontSize: 15,
     fontWeight: '600',
-    color: colors.text,
+    color: Colors.textPrimary,
   },
 });

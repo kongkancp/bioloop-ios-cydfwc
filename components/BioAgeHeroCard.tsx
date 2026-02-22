@@ -2,7 +2,8 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getAgeGapColor, getAgeGapEmoji } from '@/utils/bioAge';
+import { getAgeGapColor as getAgeGapColorUtil, getAgeGapEmoji } from '@/utils/bioAge';
+import { getAgeGapColor } from '@/constants/Colors';
 
 interface BioAgeHeroCardProps {
   bioAge: number;
@@ -16,31 +17,24 @@ export default function BioAgeHeroCard({
   ageGap,
 }: BioAgeHeroCardProps) {
   // Calculate age gap text
-  // ageGap = chronologicalAge - bioAge
-  // Positive ageGap means you're YOUNGER (chronological > bio)
-  // Negative ageGap means you're OLDER (chronological < bio)
   const ageGapText = React.useMemo(() => {
     if (ageGap > 0.5) {
-      // Positive gap = younger
       return `${ageGap.toFixed(1)} years younger`;
     } else if (ageGap < -0.5) {
-      // Negative gap = older
       const absGap = Math.abs(ageGap);
       return `${absGap.toFixed(1)} years older`;
     }
     return 'Right on target';
   }, [ageGap]);
 
-  // Get color based on age gap
+  // Use BioLoop color function
   const color = React.useMemo(() => getAgeGapColor(ageGap), [ageGap]);
 
   // Get emoji based on age gap
   const emoji = React.useMemo(() => getAgeGapEmoji(ageGap), [ageGap]);
 
-  // Format bio age display
+  // Format displays
   const bioAgeDisplay = bioAge.toFixed(1);
-
-  // Format chronological age display
   const chronologicalAgeDisplay = `Chronological: ${chronologicalAge}`;
 
   return (

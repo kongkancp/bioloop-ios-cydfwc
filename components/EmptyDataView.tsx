@@ -3,6 +3,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
+import { Colors } from '@/constants/Colors';
 
 interface EmptyDataViewProps {
   icon: string;
@@ -27,7 +28,7 @@ export default function EmptyDataView({
         ios_icon_name={iosIcon}
         android_material_icon_name={icon}
         size={60}
-        color={colors.textSecondary}
+        color={Colors.textMuted}
       />
       <View style={styles.textContainer}>
         <Text style={styles.title}>{title}</Text>
@@ -55,17 +56,17 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: '600',
-    color: colors.text,
+    color: Colors.textPrimary,
     textAlign: 'center',
   },
   message: {
     fontSize: 17,
-    color: colors.textSecondary,
+    color: Colors.textMuted,
     textAlign: 'center',
     lineHeight: 24,
   },
   button: {
-    backgroundColor: '#0066FF',
+    backgroundColor: Colors.accentBlue,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 12,

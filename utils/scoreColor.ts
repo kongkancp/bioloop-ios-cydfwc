@@ -1,13 +1,13 @@
 
+import { Colors, getScoreColor as getScoreColorFromColors } from '@/constants/Colors';
+
 /**
  * Global score color helper function
  * Maps a score (0-100) to a color based on performance thresholds
+ * Uses BioLoop design colors
  */
 export function getScoreColor(score: number): string {
-  if (score >= 80) return '#34C759'; // Green - Excellent
-  if (score >= 65) return '#007AFF'; // Blue - Good
-  if (score >= 50) return '#FF9500'; // Orange - Fair
-  return '#FF3B30'; // Red - Poor
+  return getScoreColorFromColors(score);
 }
 
 /**
@@ -15,8 +15,8 @@ export function getScoreColor(score: number): string {
  */
 export function getScoreLevel(score: number): string {
   if (score >= 80) return 'Excellent';
-  if (score >= 65) return 'Good';
-  if (score >= 50) return 'Fair';
+  if (score >= 60) return 'Good';
+  if (score >= 40) return 'Fair';
   return 'Poor';
 }
 
@@ -27,8 +27,8 @@ export function getInverseScoreColor(value: number, optimal: number, range: numb
   const deviation = Math.abs(value - optimal);
   const percentage = (deviation / range) * 100;
   
-  if (percentage <= 10) return '#34C759'; // Green - Excellent
-  if (percentage <= 20) return '#007AFF'; // Blue - Good
-  if (percentage <= 30) return '#FF9500'; // Orange - Fair
-  return '#FF3B30'; // Red - Poor
+  if (percentage <= 10) return Colors.accentGreen;
+  if (percentage <= 20) return Colors.accentBlue;
+  if (percentage <= 30) return Colors.accentOrange;
+  return Colors.accentRed;
 }
