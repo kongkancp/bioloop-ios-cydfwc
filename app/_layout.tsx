@@ -78,21 +78,21 @@ function RootLayoutNav() {
 
   if (!loaded || isLoading) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" color="#0066FF" />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' }}>
+        <ActivityIndicator size="large" color="#007AFF" />
       </View>
     );
   }
 
-  const CustomDefaultTheme: Theme = {
+  const CustomLightTheme: Theme = {
     ...DefaultTheme,
     dark: false,
     colors: {
       primary: "rgb(0, 122, 255)",
-      background: "rgb(242, 242, 247)",
+      background: "rgb(255, 255, 255)",
       card: "rgb(255, 255, 255)",
       text: "rgb(0, 0, 0)",
-      border: "rgb(216, 216, 220)",
+      border: "rgb(229, 229, 234)",
       notification: "rgb(255, 59, 48)",
     },
   };
@@ -111,19 +111,17 @@ function RootLayoutNav() {
 
   return (
     <>
-      <StatusBar style="auto" animated />
-      <ThemeProvider
-        value={colorScheme === "dark" ? CustomDarkTheme : CustomDefaultTheme}
-      >
+      <StatusBar style="dark" animated />
+      <ThemeProvider value={CustomLightTheme}>
         <WidgetProvider>
-          <GestureHandlerRootView>
+          <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="onboarding" />
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="subscription" options={{ presentation: 'modal' }} />
               <Stack.Screen name="+not-found" />
             </Stack>
-            <SystemBars style={"auto"} />
+            <SystemBars style={"dark"} />
           </GestureHandlerRootView>
         </WidgetProvider>
       </ThemeProvider>

@@ -2,7 +2,7 @@
 import { Colors } from '@/constants/Colors';
 
 export const colors = {
-  // Use BioLoop design colors
+  // Use BioLoop design colors - LIGHT THEME
   background: Colors.bgPrimary,
   surface: Colors.bgSurface,
   card: Colors.bgCard,
@@ -15,7 +15,8 @@ export const colors = {
   purple: Colors.accentPurple,
   
   text: Colors.textPrimary,
-  textSecondary: Colors.textMuted,
+  textSecondary: Colors.textSecondary,
+  textMuted: Colors.textMuted,
   
   // Legacy aliases for backward compatibility
   blue: Colors.accentBlue,

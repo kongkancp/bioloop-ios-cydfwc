@@ -1,21 +1,25 @@
 
 export const Colors = {
-  // Backgrounds
-  bgPrimary: '#060A10',    // App background
-  bgSurface: '#0D1421',    // Elevated surfaces
-  bgCard: '#141C2A',       // Cards
-  borderSubtle: '#1E2D42', // Borders
+  // Backgrounds - LIGHT
+  bgPrimary: '#FFFFFF',      // White
+  bgSurface: '#F5F5F7',      // Light gray
+  bgCard: '#FFFFFF',         // White cards
+  borderSubtle: '#E5E5EA',   // Light borders
   
-  // Accents
-  accentBlue: '#0A84FF',
-  accentGreen: '#30D158',
-  accentOrange: '#FF9F0A',
-  accentRed: '#FF453A',
-  accentPurple: '#BF5AF2',
+  // Accents - iOS standard
+  accentBlue: '#007AFF',
+  accentGreen: '#34C759',
+  accentOrange: '#FF9500',
+  accentRed: '#FF3B30',
+  accentPurple: '#AF52DE',
   
-  // Text
-  textPrimary: '#F5F5F7',
-  textMuted: '#6E7A8A'
+  // Text - LIGHT
+  textPrimary: '#000000',    // Black
+  textSecondary: '#3C3C43',  // Dark gray
+  textMuted: '#8E8E93',      // Medium gray
+  
+  divider: '#C6C6C8',
+  shadow: 'rgba(0, 0, 0, 0.1)'
 };
 
 export function getScoreColor(score: number): string {
