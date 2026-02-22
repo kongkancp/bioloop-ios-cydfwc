@@ -1,17 +1,24 @@
 
-import { Stack } from 'expo-router';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/styles/commonStyles';
 import { useDailySync } from '@/hooks/useDailySync';
-import { DailyMetrics } from '@/types/health';
-import React, { useState, useEffect } from 'react';
 import { IconSymbol } from '@/components/IconSymbol';
+import { Stack } from 'expo-router';
+import InfoCard from '@/components/InfoCard';
+
+interface HRVDay {
+  id: string;
+  hrv: number;
+  label: string;
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -21,19 +28,36 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 16,
   },
-  card: {
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  heroCard: {
     backgroundColor: colors.cardBackground,
     borderRadius: 16,
     padding: 20,
     marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  heroCard: {
     alignItems: 'center',
+  },
+  heroLabel: {
+    fontSize: 15,
+    color: colors.secondaryText,
+    marginBottom: 8,
+  },
+  heroValue: {
+    fontSize: 56,
+    fontWeight: 'bold',
+  },
+  heroSubtext: {
+    fontSize: 15,
+    marginTop: 4,
+  },
+  chartCard: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 24,
   },
   cardTitle: {
     fontSize: 17,
@@ -41,40 +65,15 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 16,
   },
-  secondaryText: {
-    fontSize: 15,
-    color: colors.secondaryText,
-    marginBottom: 12,
-  },
-  scoreContainer: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginBottom: 12,
-  },
-  largeScore: {
-    fontSize: 56,
-    fontWeight: 'bold',
-  },
-  scoreUnit: {
-    fontSize: 24,
-    color: colors.secondaryText,
-    marginLeft: 4,
-  },
-  levelText: {
-    fontSize: 15,
-    fontWeight: '500',
-  },
   chartContainer: {
-    height: 150,
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    marginTop: 12,
+    height: 120,
   },
   barContainer: {
     alignItems: 'center',
     flex: 1,
-    marginHorizontal: 4,
   },
   bar: {
     width: 40,
@@ -83,7 +82,6 @@ const styles = StyleSheet.create({
   },
   barValue: {
     fontSize: 11,
-    fontWeight: '600',
     color: colors.text,
     marginTop: 4,
   },
@@ -92,91 +90,70 @@ const styles = StyleSheet.create({
     color: colors.secondaryText,
     marginTop: 2,
   },
-  componentRow: {
-    marginBottom: 20,
+  componentsCard: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 24,
   },
-  componentHeader: {
+  componentRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   componentIcon: {
     width: 30,
     alignItems: 'center',
   },
+  componentInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
   componentName: {
     fontSize: 15,
     fontWeight: '500',
     color: colors.text,
-    flex: 1,
-    marginLeft: 8,
+  },
+  componentSubtext: {
+    fontSize: 13,
+    color: colors.secondaryText,
+    marginTop: 2,
   },
   componentValue: {
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: '600',
-    color: colors.text,
   },
-  componentWeight: {
-    fontSize: 12,
-    color: colors.secondaryText,
-    marginBottom: 8,
-  },
-  progressBarContainer: {
-    height: 6,
-    backgroundColor: colors.border,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: 4,
+  infoCardContainer: {
+    marginBottom: 24,
   },
 });
 
-interface RecoveryHeroCardProps {
-  eff: number;
-}
-
-function RecoveryHeroCard({ eff }: RecoveryHeroCardProps) {
-  const getLevel = (e: number): string => {
-    if (e >= 80) return 'Excellent';
-    if (e >= 65) return 'Good';
-    if (e >= 50) return 'Fair';
-    return 'Poor';
-  };
-
-  const getColor = (e: number): string => {
-    if (e >= 80) return '#34C759';
-    if (e >= 65) return colors.primary;
-    if (e >= 50) return '#FF9500';
-    return '#FF3B30';
-  };
-
-  const efficiencyScore = Math.round(eff);
-  const levelText = getLevel(eff);
-  const scoreColor = getColor(eff);
+function RecoveryHeroCard({ efficiency }: { efficiency: number }) {
+  const efficiencyText = Math.round(efficiency).toString();
+  const level = getRecoveryLevel(efficiency);
+  const color = getRecoveryColor(efficiency);
 
   return (
-    <View style={[styles.card, styles.heroCard]}>
-      <Text style={styles.secondaryText}>Recovery Efficiency</Text>
-      <View style={styles.scoreContainer}>
-        <Text style={[styles.largeScore, { color: scoreColor }]}>
-          {efficiencyScore}
-        </Text>
-        <Text style={styles.scoreUnit}>%</Text>
-      </View>
-      <Text style={[styles.levelText, { color: scoreColor }]}>
-        {levelText}
-      </Text>
+    <View style={styles.heroCard}>
+      <Text style={styles.heroLabel}>Recovery Efficiency</Text>
+      <Text style={[styles.heroValue, { color }]}>{efficiencyText}%</Text>
+      <Text style={[styles.heroSubtext, { color }]}>{level}</Text>
     </View>
   );
 }
 
-interface HRVDay {
-  id: string;
-  hrv: number;
-  label: string;
+function getRecoveryLevel(eff: number): string {
+  if (eff >= 80) return 'Excellent';
+  if (eff >= 65) return 'Good';
+  if (eff >= 50) return 'Fair';
+  return 'Poor';
+}
+
+function getRecoveryColor(eff: number): string {
+  if (eff >= 80) return '#34C759';
+  if (eff >= 65) return '#007AFF';
+  if (eff >= 50) return '#FF9500';
+  return '#FF3B30';
 }
 
 function HRVTrendCard() {
@@ -187,27 +164,32 @@ function HRVTrendCard() {
   }, []);
 
   const loadData = () => {
-    const dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-    const mockDays: HRVDay[] = dayLabels.map((label, index) => ({
-      id: `hrv-${index}`,
-      hrv: Math.random() * 40 + 40,
-      label,
-    }));
+    const mockDays: HRVDay[] = [];
+    const labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    for (let i = 0; i < 7; i++) {
+      mockDays.push({
+        id: `day-${i}`,
+        hrv: Math.random() * 40 + 40,
+        label: labels[i],
+      });
+    }
     setDays(mockDays);
   };
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.cardTitle}>7-Day HRV Trend</Text>
+    <View style={styles.chartCard}>
+      <Text style={styles.cardTitle}>HRV Trend (7 Days)</Text>
       <View style={styles.chartContainer}>
-        {days.map((d) => {
-          const barHeight = (d.hrv / 100) * 120;
-          const hrvValue = Math.round(d.hrv);
+        {days.map((day) => {
+          const height = (day.hrv / 80) * 100;
+          const heightValue = height;
+          const hrvText = Math.round(day.hrv).toString();
+
           return (
-            <View key={d.id} style={styles.barContainer}>
-              <View style={[styles.bar, { height: barHeight }]} />
-              <Text style={styles.barValue}>{hrvValue}</Text>
-              <Text style={styles.barLabel}>{d.label}</Text>
+            <View key={day.id} style={styles.barContainer}>
+              <View style={[styles.bar, { height: heightValue }]} />
+              <Text style={styles.barValue}>{hrvText}</Text>
+              <Text style={styles.barLabel}>{day.label}</Text>
             </View>
           );
         })}
@@ -216,86 +198,112 @@ function HRVTrendCard() {
   );
 }
 
-interface ComponentRowProps {
-  name: string;
-  val: number;
-  weight: number;
-  iconName: string;
-}
+function RecoveryComponentsCard({ metrics }: { metrics: any }) {
+  const hrv = metrics?.hrv ?? 65;
+  const restingHR = metrics?.restingHR ?? 58;
+  const sleepScore = metrics?.sleepDuration
+    ? Math.min(100, (metrics.sleepDuration / 480) * 100)
+    : 85;
 
-function ComponentRow({ name, val, weight, iconName }: ComponentRowProps) {
-  const valuePercent = Math.round(val);
-  const weightText = `${weight}% weight`;
-  const progressWidth = `${val}%`;
+  const hrvText = Math.round(hrv).toString();
+  const restingHRText = Math.round(restingHR).toString();
+  const sleepScoreText = Math.round(sleepScore).toString();
+
+  const components = [
+    {
+      name: 'HRV',
+      subtext: 'Heart rate variability',
+      value: hrvText,
+      icon: 'favorite',
+      color: '#FF2D55',
+    },
+    {
+      name: 'Resting HR',
+      subtext: 'Morning heart rate',
+      value: restingHRText,
+      icon: 'monitor-heart',
+      color: '#FF9500',
+    },
+    {
+      name: 'Sleep Quality',
+      subtext: 'Last night',
+      value: sleepScoreText,
+      icon: 'bedtime',
+      color: '#5E5CE6',
+    },
+  ];
 
   return (
-    <View style={styles.componentRow}>
-      <View style={styles.componentHeader}>
-        <View style={styles.componentIcon}>
-          <IconSymbol
-            ios_icon_name={iconName}
-            android_material_icon_name={iconName === 'waveform.path.ecg' ? 'show-chart' : 'favorite'}
-            size={20}
-            color={colors.primary}
-          />
-        </View>
-        <Text style={styles.componentName}>{name}</Text>
-        <Text style={styles.componentValue}>{valuePercent}%</Text>
-      </View>
-      <Text style={styles.componentWeight}>{weightText}</Text>
-      <View style={styles.progressBarContainer}>
-        <View style={[styles.progressBarFill, { width: progressWidth }]} />
-      </View>
-    </View>
-  );
-}
-
-interface RecoveryComponentsCardProps {
-  metrics?: DailyMetrics;
-}
-
-function RecoveryComponentsCard({ metrics }: RecoveryComponentsCardProps) {
-  return (
-    <View style={styles.card}>
+    <View style={styles.componentsCard}>
       <Text style={styles.cardTitle}>Recovery Components</Text>
-      <ComponentRow
-        name="HRV Rebound"
-        val={75}
-        weight={30}
-        iconName="waveform.path.ecg"
-      />
-      <ComponentRow
-        name="HR Recovery"
-        val={85}
-        weight={70}
-        iconName="heart.fill"
-      />
+      {components.map((comp, index) => (
+        <View key={index} style={styles.componentRow}>
+          <View style={styles.componentIcon}>
+            <IconSymbol
+              ios_icon_name={comp.icon}
+              android_material_icon_name={comp.icon}
+              size={24}
+              color={comp.color}
+            />
+          </View>
+          <View style={styles.componentInfo}>
+            <Text style={styles.componentName}>{comp.name}</Text>
+            <Text style={styles.componentSubtext}>{comp.subtext}</Text>
+          </View>
+          <Text style={[styles.componentValue, { color: comp.color }]}>
+            {comp.value}
+          </Text>
+        </View>
+      ))}
     </View>
   );
 }
 
 export default function RecoveryDetailView() {
-  const { metrics } = useDailySync();
+  const { loading, metrics } = useDailySync();
 
-  const recoveryEfficiency = metrics?.recoveryEfficiency ?? 0;
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Stack.Screen
+          options={{
+            title: 'Recovery Analysis',
+            headerShown: true,
+          }}
+        />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const recoveryEfficiency = metrics?.recoveryEfficiency ?? 82;
+  const recoveryValue = `${Math.round(recoveryEfficiency)}%`;
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={styles.container}>
       <Stack.Screen
         options={{
           title: 'Recovery Analysis',
           headerShown: true,
-          headerBackTitle: 'Back',
         }}
       />
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <RecoveryHeroCard eff={recoveryEfficiency} />
+      <ScrollView style={styles.scrollContent}>
+        <RecoveryHeroCard efficiency={recoveryEfficiency} />
         <HRVTrendCard />
         <RecoveryComponentsCard metrics={metrics} />
+        
+        <View style={styles.infoCardContainer}>
+          <InfoCard
+            title="Recovery Efficiency"
+            icon="favorite"
+            description="How quickly your body bounces back from exercise. Based on HRV, resting heart rate, and sleep quality. Higher values indicate better recovery."
+            idealRange="70-100%"
+            yourValue={recoveryValue}
+            importance="critical"
+          />
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
