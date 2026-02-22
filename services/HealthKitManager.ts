@@ -45,10 +45,10 @@ class HealthKitManager {
       // - Height (HKQuantityType.height)
       // - Date of birth (HKCharacteristicType.dateOfBirth)
       
-      // Mock authorization success
-      await new Promise(resolve => setTimeout(resolve, 500));
-      console.log('HealthKitManager: Authorization granted');
-      return true;
+      // TODO: Implement native HealthKit authorization
+      // This requires native iOS module integration
+      console.log('HealthKitManager: Authorization request - native implementation required');
+      return false;
     } catch (error) {
       console.error('HealthKitManager: Authorization failed', error);
       throw new Error(HealthKitError.Unauthorized);
@@ -65,7 +65,12 @@ class HealthKitManager {
       
       const authorized = await this.requestAuthorization();
       if (!authorized) {
-        throw new Error(HealthKitError.Unauthorized);
+        console.log('HealthKitManager: Not authorized, returning empty metrics');
+        return {
+          date: startOfDay(date),
+          workouts: [],
+          computedAt: new Date(),
+        };
       }
 
       const dayStart = startOfDay(date);
@@ -122,9 +127,9 @@ class HealthKitManager {
       // let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate)
       // Query for most recent sample
       
-      // Mock data
-      const mockValue = 62 + Math.random() * 10;
-      return this.validateNumber(mockValue);
+      // TODO: Implement native HealthKit query
+      console.log('HealthKitManager: Resting HR query - native implementation required');
+      return undefined;
     } catch (error) {
       console.error('HealthKitManager: Error querying resting heart rate', error);
       return undefined;
@@ -146,9 +151,9 @@ class HealthKitManager {
       // let type = HKQuantityType.heartRateVariabilitySDNN
       // Query all samples from today and calculate average
       
-      // Mock data
-      const mockValue = 45 + Math.random() * 15;
-      return this.validateNumber(mockValue);
+      // TODO: Implement native HealthKit query
+      console.log('HealthKitManager: HRV query - native implementation required');
+      return undefined;
     } catch (error) {
       console.error('HealthKitManager: Error querying HRV', error);
       return undefined;
@@ -171,9 +176,9 @@ class HealthKitManager {
       // let predicate = HKQuery.predicateForSamples(withStart: thirtyDaysAgo, end: now)
       // Query for most recent sample within 30 days
       
-      // Mock data
-      const mockValue = 40 + Math.random() * 10;
-      return this.validateNumber(mockValue);
+      // TODO: Implement native HealthKit query
+      console.log('HealthKitManager: VO2 Max query - native implementation required');
+      return undefined;
     } catch (error) {
       console.error('HealthKitManager: Error querying VO2 Max', error);
       return undefined;
@@ -197,9 +202,9 @@ class HealthKitManager {
       // Query all sleep stages from previous night
       // Sum durations of all sleep stages (asleep, core, deep, REM)
       
-      // Mock data (in hours)
-      const mockValue = 6.5 + Math.random() * 2;
-      return this.validateNumber(mockValue);
+      // TODO: Implement native HealthKit query
+      console.log('HealthKitManager: Sleep duration query - native implementation required');
+      return undefined;
     } catch (error) {
       console.error('HealthKitManager: Error querying sleep duration', error);
       return undefined;
@@ -222,9 +227,9 @@ class HealthKitManager {
       // let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate)
       // Query for most recent sample
       
-      // Mock data (in kg)
-      const mockValue = 70 + Math.random() * 10;
-      return this.validateNumber(mockValue);
+      // TODO: Implement native HealthKit query
+      console.log('HealthKitManager: Body mass query - native implementation required');
+      return undefined;
     } catch (error) {
       console.error('HealthKitManager: Error querying body mass', error);
       return undefined;
@@ -252,19 +257,9 @@ class HealthKitManager {
       // - peak heart rate
       // - heart rate 60 seconds after workout end
       
-      // Mock data
-      const mockWorkouts: WorkoutSession[] = [
-        {
-          startTime: new Date(Date.now() - 3600000 * 2),
-          duration: 45,
-          averageHR: 145,
-          peakHR: 172,
-          hrAfter60s: 120,
-          type: 'Running',
-        },
-      ];
-      
-      return mockWorkouts.map(w => this.validateWorkout(w));
+      // TODO: Implement native HealthKit query
+      console.log('HealthKitManager: Workouts query - native implementation required');
+      return [];
     } catch (error) {
       console.error('HealthKitManager: Error querying workouts', error);
       return [];

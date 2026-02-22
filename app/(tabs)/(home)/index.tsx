@@ -10,13 +10,10 @@ import {
   RefreshControl,
 } from 'react-native';
 import EmptyDataView from '@/components/EmptyDataView';
-import { calculateBioAgeWithProfile } from '@/utils/bioAge';
 import HealthKitManager from '@/services/HealthKitManager';
-import MockDataGenerator from '@/services/MockDataGenerator';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { useDailySync } from '@/hooks/useDailySync';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import BioLoopDebugger from '@/utils/debugHelper';
 import { colors } from '@/styles/commonStyles';
 import { getScoreColor } from '@/utils/scoreColor';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -156,23 +153,10 @@ const styles = StyleSheet.create({
   actionChevron: {
     marginLeft: 8,
   },
-  debugButton: {
-    backgroundColor: colors.cardBackground,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-    alignItems: 'center',
-  },
-  debugButtonText: {
-    ...Typography.body,
-    fontWeight: '600',
-    color: colors.primary,
-  },
 });
 
 export default function HomeScreen() {
   const [loading, setLoading] = useState(false);
-  const [generatingMockData, setGeneratingMockData] = useState(false);
   const router = useRouter();
   const { metrics, syncNow } = useDailySync();
 
@@ -197,20 +181,6 @@ export default function HomeScreen() {
       }
     } catch (error) {
       console.error('HomeScreen: Error requesting HealthKit permission:', error);
-    }
-  };
-
-  const handleGenerateMockData = async () => {
-    console.log('HomeScreen: User tapped Generate Mock Data');
-    setGeneratingMockData(true);
-    try {
-      await MockDataGenerator.generateMockData();
-      console.log('HomeScreen: Mock data generated successfully');
-      await handleRefresh();
-    } catch (error) {
-      console.error('HomeScreen: Error generating mock data:', error);
-    } finally {
-      setGeneratingMockData(false);
     }
   };
 
@@ -538,19 +508,6 @@ export default function HomeScreen() {
             />
           </TouchableOpacity>
         </View>
-
-        {Platform.OS === 'ios' && __DEV__ && (
-          <TouchableOpacity
-            style={styles.debugButton}
-            onPress={handleGenerateMockData}
-            disabled={generatingMockData}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.debugButtonText}>
-              {generatingMockData ? 'Generating...' : 'Generate Mock Data (Dev Only)'}
-            </Text>
-          </TouchableOpacity>
-        )}
       </ScrollView>
     </SafeAreaView>
   );
