@@ -182,6 +182,28 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 20,
   },
+  insightRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  insightIconContainer: {
+    marginRight: 12,
+  },
+  insightTextContainer: {
+    flex: 1,
+  },
+  insightTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginBottom: 2,
+  },
+  insightDesc: {
+    fontSize: 13,
+    color: Colors.textMuted,
+    lineHeight: 18,
+  },
 });
 
 interface RingGaugeProps {
@@ -409,6 +431,108 @@ function LongevityFactorsCard({ factors }: LongevityFactorsCardProps) {
   );
 }
 
+interface InsightRowProps {
+  icon: string;
+  androidIcon: string;
+  color: string;
+  title: string;
+  description: string;
+}
+
+function InsightRow({ icon, androidIcon, color, title, description }: InsightRowProps) {
+  return (
+    <View style={styles.insightRow}>
+      <View style={styles.insightIconContainer}>
+        <IconSymbol
+          ios_icon_name={icon}
+          android_material_icon_name={androidIcon}
+          size={20}
+          color={color}
+        />
+      </View>
+      <View style={styles.insightTextContainer}>
+        <Text style={styles.insightTitle}>{title}</Text>
+        <Text style={styles.insightDesc}>{description}</Text>
+      </View>
+    </View>
+  );
+}
+
+interface InsightsCardProps {
+  factors: LongevityAnalysis['factors'];
+}
+
+function InsightsCard({ factors }: InsightsCardProps) {
+  const cardTitleText = 'Actionable Insights';
+  
+  // Find top factor by absolute year impact
+  const topFactor = factors.reduce((best, f) => 
+    Math.abs(f.yearImpact) > Math.abs(best.yearImpact) ? f : best
+  , factors[0]);
+  
+  // Filter factors by score
+  const needsWork = factors.filter(f => f.score < 60);
+  const doingWell = factors.filter(f => f.score >= 80);
+  
+  // Build insight descriptions
+  const topFactorName = topFactor.name;
+  const topFactorImpact = Math.abs(topFactor.yearImpact).toFixed(1);
+  const topFactorDesc = `Improving ${topFactorName} could add ${topFactorImpact} years`;
+  
+  const strengthsNames = doingWell.map(f => f.name).join(', ');
+  const strengthsDesc = `Strong: ${strengthsNames}`;
+  
+  const focusNames = needsWork.map(f => f.name).join(', ');
+  const focusDesc = `Improve: ${focusNames}`;
+  
+  const trackProgressTitle = 'Track Progress';
+  const trackProgressDesc = 'Sync daily to monitor longevity trajectory';
+
+  return (
+    <BioCard accentColor={Colors.accentBlue}>
+      <Text style={styles.cardTitle}>{cardTitleText}</Text>
+      
+      <View>
+        <InsightRow
+          icon="star.fill"
+          androidIcon="star"
+          color={Colors.accentGreen}
+          title="Biggest Impact"
+          description={topFactorDesc}
+        />
+        
+        {doingWell.length > 0 && (
+          <InsightRow
+            icon="checkmark.circle.fill"
+            androidIcon="check-circle"
+            color={Colors.accentGreen}
+            title="Strengths"
+            description={strengthsDesc}
+          />
+        )}
+        
+        {needsWork.length > 0 && (
+          <InsightRow
+            icon="exclamationmark.triangle.fill"
+            androidIcon="warning"
+            color={Colors.accentOrange}
+            title="Focus Areas"
+            description={focusDesc}
+          />
+        )}
+        
+        <InsightRow
+          icon="chart.line.uptrend.xyaxis"
+          androidIcon="trending-up"
+          color={Colors.accentBlue}
+          title={trackProgressTitle}
+          description={trackProgressDesc}
+        />
+      </View>
+    </BioCard>
+  );
+}
+
 export default function LongevityDetailView() {
   const { metrics, loading } = useDailySync();
   const [chronAge, setChronAge] = useState<number | null>(null);
@@ -543,6 +667,7 @@ export default function LongevityDetailView() {
           potentialGain={longevityAnalysis.potentialGain}
         />
         <LongevityFactorsCard factors={longevityAnalysis.factors} />
+        <InsightsCard factors={longevityAnalysis.factors} />
       </ScrollView>
     </SafeAreaView>
   );
