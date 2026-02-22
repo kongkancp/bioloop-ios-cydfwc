@@ -13,6 +13,7 @@ import { useDailySync } from '@/hooks/useDailySync';
 import { IconSymbol } from '@/components/IconSymbol';
 import { Stack } from 'expo-router';
 import InfoCard from '@/components/InfoCard';
+import EmptyDataView from '@/components/EmptyDataView';
 
 interface HRVDay {
   id: string;
@@ -260,7 +261,7 @@ function RecoveryComponentsCard({ metrics }: { metrics: any }) {
 }
 
 export default function RecoveryDetailView() {
-  const { loading, metrics } = useDailySync();
+  const { loading, metrics, syncNow } = useDailySync();
 
   if (loading) {
     return (
@@ -278,7 +279,30 @@ export default function RecoveryDetailView() {
     );
   }
 
-  const recoveryEfficiency = metrics?.recoveryEfficiency ?? 82;
+  const hasRecoveryData = metrics?.recoveryEfficiency !== undefined && metrics.recoveryEfficiency !== null;
+
+  if (!hasRecoveryData) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Stack.Screen
+          options={{
+            title: 'Recovery Analysis',
+            headerShown: true,
+          }}
+        />
+        <EmptyDataView
+          icon="favorite"
+          iosIcon="heart.fill"
+          title="No Recovery Data"
+          message="Sync HealthKit to see your recovery efficiency and heart rate variability analysis."
+          actionTitle="Sync Data"
+          action={syncNow}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  const recoveryEfficiency = metrics.recoveryEfficiency;
   const recoveryValue = `${Math.round(recoveryEfficiency)}%`;
 
   return (

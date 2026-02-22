@@ -13,6 +13,7 @@ import { useDailySync } from '@/hooks/useDailySync';
 import { IconSymbol } from '@/components/IconSymbol';
 import { Stack } from 'expo-router';
 import InfoCard from '@/components/InfoCard';
+import EmptyDataView from '@/components/EmptyDataView';
 
 interface Stage {
   name: string;
@@ -202,7 +203,7 @@ function getQualityColor(score: number): string {
 }
 
 export default function SleepDetailView() {
-  const { loading, metrics } = useDailySync();
+  const { loading, metrics, syncNow } = useDailySync();
 
   if (loading) {
     return (
@@ -220,10 +221,31 @@ export default function SleepDetailView() {
     );
   }
 
-  const sleepHours = metrics?.sleepDuration ? metrics.sleepDuration / 60 : 7.5;
-  const sleepScore = metrics?.sleepDuration
-    ? Math.min(100, (metrics.sleepDuration / 480) * 100)
-    : 85;
+  const hasSleepData = metrics?.sleepDuration && metrics.sleepDuration > 0;
+
+  if (!hasSleepData) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Stack.Screen
+          options={{
+            title: 'Sleep Analysis',
+            headerShown: true,
+          }}
+        />
+        <EmptyDataView
+          icon="bedtime"
+          iosIcon="moon.fill"
+          title="No Sleep Data"
+          message="Sync HealthKit to see your sleep analysis and track your sleep quality over time."
+          actionTitle="Sync Data"
+          action={syncNow}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  const sleepHours = metrics.sleepDuration / 60;
+  const sleepScore = Math.min(100, (metrics.sleepDuration / 480) * 100);
 
   const yourValueText = `${sleepHours.toFixed(1)}h`;
 

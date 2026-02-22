@@ -1,6 +1,14 @@
 
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors } from '@/styles/commonStyles';
+import BioLoopDebugger from '@/utils/debugHelper';
+import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import React, { useState, useEffect } from 'react';
-import { useDailySync } from '@/hooks/useDailySync';
+import HealthKitManager from '@/services/HealthKitManager';
+import EmptyDataView from '@/components/EmptyDataView';
+import { IconSymbol } from '@/components/IconSymbol';
+import { calculateBioAgeWithProfile } from '@/utils/bioAge';
+import { getScoreColor } from '@/utils/scoreColor';
 import {
   View,
   Text,
@@ -11,616 +19,478 @@ import {
   Platform,
   RefreshControl,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '@/styles/commonStyles';
-import { Stack, useRouter } from 'expo-router';
-import EmptyDataView from '@/components/EmptyDataView';
-import HealthKitManager from '@/services/HealthKitManager';
-import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
-import { IconSymbol } from '@/components/IconSymbol';
-import BioLoopDebugger from '@/utils/debugHelper';
-import { calculateBioAgeWithProfile } from '@/utils/bioAge';
 import MockDataGenerator from '@/services/MockDataGenerator';
-
-export default function HomeScreen() {
-  const { metrics, baselines, userProfile, loading, syncing, syncNow } = useDailySync();
-  const [refreshing, setRefreshing] = useState(false);
-  const [generatingMockData, setGeneratingMockData] = useState(false);
-  const router = useRouter();
-
-  // Auto-generate mock data on first load if no data exists
-  useEffect(() => {
-    const autoGenerateMockData = async () => {
-      if (!loading && !metrics && !generatingMockData) {
-        console.log('HomeScreen: No data found, auto-generating mock data to simulate HealthKit permission granted');
-        setGeneratingMockData(true);
-        try {
-          await MockDataGenerator.generateAllData();
-          console.log('HomeScreen: Mock data generated, triggering sync');
-          await syncNow(true);
-        } catch (error) {
-          console.error('HomeScreen: Failed to generate mock data:', error);
-        } finally {
-          setGeneratingMockData(false);
-        }
-      }
-    };
-
-    autoGenerateMockData();
-  }, [loading, metrics, generatingMockData, syncNow]);
-
-  const handleRefresh = async () => {
-    console.log('HomeScreen: Pull-to-refresh triggered');
-    setRefreshing(true);
-    await syncNow(true);
-    setRefreshing(false);
-  };
-
-  const handleRequestPermission = async () => {
-    console.log('HomeScreen: User tapped Request Permission button');
-    try {
-      const granted = await HealthKitManager.requestAuthorization();
-      if (granted) {
-        await syncNow(true);
-      }
-    } catch (error) {
-      console.error('HomeScreen: Permission request failed', error);
-    }
-  };
-
-  const handleGenerateMockData = async () => {
-    console.log('HomeScreen: User tapped Generate Mock Data button');
-    setGeneratingMockData(true);
-    try {
-      await MockDataGenerator.generateAllData();
-      console.log('HomeScreen: Mock data generated, triggering sync');
-      await syncNow(true);
-    } catch (error) {
-      console.error('HomeScreen: Failed to generate mock data:', error);
-    } finally {
-      setGeneratingMockData(false);
-    }
-  };
-
-  // Calculate readiness score
-  const calculateReadinessScore = (): number => {
-    if (!metrics) return 0;
-    
-    const recovery = metrics.recoveryEfficiency ?? 50;
-    const sleepScore = ((metrics.sleepDuration ?? 420) / 480) * 100;
-    const strain = Math.max(0, 100 - (metrics.loadScore ?? 0));
-    
-    const readiness = (recovery * 0.5) + (sleepScore * 0.3) + (strain * 0.2);
-    return Math.max(0, Math.min(100, readiness));
-  };
-
-  const readinessScore = calculateReadinessScore();
-
-  const getReadinessLevel = (score: number): string => {
-    if (score >= 80) return 'Excellent';
-    if (score >= 65) return 'Good';
-    if (score >= 50) return 'Fair';
-    return 'Rest Needed';
-  };
-
-  const readinessLevel = getReadinessLevel(readinessScore);
-
-  const getReadinessMessage = (score: number): string => {
-    if (score >= 80) return 'Ready for intense training';
-    if (score >= 65) return 'Good for moderate activity';
-    if (score >= 50) return 'Consider light exercise';
-    return 'Focus on recovery';
-  };
-
-  const readinessMessage = getReadinessMessage(readinessScore);
-
-  const getGradientColors = (score: number): string[] => {
-    if (score >= 80) return ['#10b981', '#3b82f6'];
-    if (score >= 50) return ['#3b82f6', '#f97316'];
-    return ['#f97316', '#ef4444'];
-  };
-
-  const gradientColors = getGradientColors(readinessScore);
-
-  const getScoreColor = (score: number): string => {
-    if (score >= 80) return '#10b981';
-    if (score >= 65) return '#3b82f6';
-    if (score >= 50) return '#f97316';
-    return '#ef4444';
-  };
-
-  const scoreColor = getScoreColor(readinessScore);
-
-  const bioAgeDisplay = metrics && baselines && userProfile?.dateOfBirth
-    ? (() => {
-        const age = Math.floor((Date.now() - userProfile.dateOfBirth.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-        const indices = {
-          autonomic: metrics.autonomicIndex ?? null,
-          vo2: metrics.vo2Index ?? null,
-          sleep: metrics.sleepIndex ?? null,
-          workout: metrics.workoutIndex ?? null,
-          bmi: metrics.bmiIndex ?? null,
-        };
-        const componentCount = [indices.autonomic, indices.vo2, indices.sleep, indices.workout, indices.bmi]
-          .filter(x => x !== null).length;
-        
-        if (componentCount >= 3) {
-          return metrics.bioAgeSmoothed ?? metrics.bioAge ?? age;
-        }
-        return null;
-      })()
-    : null;
-
-  const bioAgeScore = bioAgeDisplay && userProfile?.dateOfBirth
-    ? (() => {
-        const age = Math.floor((Date.now() - userProfile.dateOfBirth.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-        const ageGap = age - bioAgeDisplay;
-        return Math.max(0, Math.min(100, 50 + ageGap * 5));
-      })()
-    : 50;
-
-  const formatSleep = (minutes: number | undefined): string => {
-    if (!minutes) return '--';
-    const hours = Math.floor(minutes / 60);
-    const mins = Math.round(minutes % 60);
-    return `${hours}h ${mins}m`;
-  };
-
-  const sleepDisplay = formatSleep(metrics?.sleepDuration);
-  const sleepScore = metrics?.sleepDuration ? Math.min(100, (metrics.sleepDuration / 480) * 100) : 0;
-
-  const strainDisplay = metrics?.loadScore ? Math.round(metrics.loadScore).toString() : '--';
-  const strainScore = metrics?.loadScore ?? 0;
-
-  const recoveryDisplay = metrics?.recoveryEfficiency ? `${Math.round(metrics.recoveryEfficiency)}%` : '--';
-  const recoveryScore = metrics?.recoveryEfficiency ?? 0;
-
-  const bioAgeDisplayText = bioAgeDisplay ? `${bioAgeDisplay.toFixed(1)} yrs` : '--';
-
-  const performanceDisplay = metrics?.performanceIndex ? metrics.performanceIndex.toFixed(1) : '--';
-  const performanceMessage = metrics?.performanceIndex
-    ? (() => {
-        const pi = metrics.performanceIndex;
-        if (pi >= 80) return 'Peak performance - maintain intensity';
-        if (pi >= 65) return 'Strong performance - push harder';
-        if (pi >= 50) return 'Moderate performance - steady progress';
-        return 'Building phase - focus on recovery';
-      })()
-    : 'Sync data to see your performance';
-
-  if (loading || generatingMockData) {
-    const loadingText = generatingMockData 
-      ? 'Generating mock health data...' 
-      : 'Loading your health data...';
-    
-    return (
-      <SafeAreaView style={styles.container}>
-        <Stack.Screen options={{ title: 'Home', headerShown: false }} />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>{loadingText}</Text>
-          {generatingMockData && (
-            <Text style={styles.loadingSubtext}>
-              Simulating HealthKit permission granted...
-            </Text>
-          )}
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (!metrics) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <Stack.Screen options={{ title: 'Home', headerShown: false }} />
-        <View style={styles.emptyContainer}>
-          <EmptyDataView
-            icon="favorite"
-            iosIcon="heart.text.square"
-            title="No Health Data"
-            message="Grant HealthKit permissions to start tracking your health metrics, or generate mock data to see how the app works."
-            actionTitle="Grant Permission"
-            action={handleRequestPermission}
-          />
-          <TouchableOpacity 
-            style={styles.mockDataButton}
-            onPress={handleGenerateMockData}
-            disabled={generatingMockData}
-          >
-            <Text style={styles.mockDataButtonText}>
-              {generatingMockData ? 'Generating...' : 'Generate Mock Data'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  const radius = 100;
-  const strokeWidth = 24;
-  const circumference = 2 * Math.PI * radius;
-  const progress = (readinessScore / 100) * circumference;
-
-  return (
-    <SafeAreaView style={styles.container}>
-      <Stack.Screen 
-        options={{ 
-          title: 'Home', 
-          headerShown: true,
-          headerRight: () => (
-            <TouchableOpacity onPress={() => {
-              console.log('HomeScreen: User tapped info icon, navigating to metrics-glossary');
-              router.push('/metrics-glossary');
-            }}>
-              <IconSymbol
-                ios_icon_name="info.circle"
-                android_material_icon_name="info"
-                size={24}
-                color={colors.primary}
-              />
-            </TouchableOpacity>
-          ),
-        }} 
-      />
-      
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={colors.primary}
-          />
-        }
-      >
-        {/* Section 1: Readiness Hero Circle */}
-        <View style={styles.heroSection}>
-          <Text style={styles.heroTitle}>Today's Readiness</Text>
-          
-          <View style={styles.circleContainer}>
-            <Svg width={radius * 2 + strokeWidth} height={radius * 2 + strokeWidth}>
-              <Defs>
-                <LinearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <Stop offset="0%" stopColor={gradientColors[0]} />
-                  <Stop offset="100%" stopColor={gradientColors[1]} />
-                </LinearGradient>
-              </Defs>
-              
-              <Circle
-                cx={radius + strokeWidth / 2}
-                cy={radius + strokeWidth / 2}
-                r={radius}
-                stroke={colors.border}
-                strokeWidth={strokeWidth}
-                fill="none"
-              />
-              
-              <Circle
-                cx={radius + strokeWidth / 2}
-                cy={radius + strokeWidth / 2}
-                r={radius}
-                stroke="url(#gradient)"
-                strokeWidth={strokeWidth}
-                fill="none"
-                strokeDasharray={circumference}
-                strokeDashoffset={circumference - progress}
-                strokeLinecap="round"
-                rotation="-90"
-                origin={`${radius + strokeWidth / 2}, ${radius + strokeWidth / 2}`}
-              />
-            </Svg>
-            
-            <View style={styles.circleContent}>
-              <Text style={[styles.scoreNumber, { color: scoreColor }]}>
-                {Math.round(readinessScore)}
-              </Text>
-              <Text style={styles.scoreLevel}>{readinessLevel}</Text>
-            </View>
-          </View>
-          
-          <Text style={styles.heroMessage}>{readinessMessage}</Text>
-        </View>
-
-        {/* Section 2: 4 Metric Cards Grid */}
-        <View style={styles.metricsGrid}>
-          <TouchableOpacity 
-            style={styles.metricCard} 
-            activeOpacity={0.7}
-            onPress={() => {
-              console.log('HomeScreen: User tapped Sleep card, navigating to sleep-detail');
-              router.push('/sleep-detail');
-            }}
-          >
-            <View style={styles.metricHeader}>
-              <IconSymbol
-                ios_icon_name="moon.fill"
-                android_material_icon_name="bedtime"
-                size={24}
-                color={getScoreColor(sleepScore)}
-              />
-              <Text style={[styles.metricScore, { color: getScoreColor(sleepScore) }]}>
-                {Math.round(sleepScore)}
-              </Text>
-            </View>
-            <Text style={styles.metricTitle}>Sleep</Text>
-            <Text style={styles.metricValue}>{sleepDisplay}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.metricCard} 
-            activeOpacity={0.7}
-            onPress={() => {
-              console.log('HomeScreen: User tapped Strain card, navigating to strain-detail');
-              router.push('/strain-detail');
-            }}
-          >
-            <View style={styles.metricHeader}>
-              <IconSymbol
-                ios_icon_name="flame.fill"
-                android_material_icon_name="local-fire-department"
-                size={24}
-                color={getScoreColor(100 - strainScore)}
-              />
-              <Text style={[styles.metricScore, { color: getScoreColor(100 - strainScore) }]}>
-                {Math.round(100 - strainScore)}
-              </Text>
-            </View>
-            <Text style={styles.metricTitle}>Strain</Text>
-            <Text style={styles.metricValue}>{strainDisplay}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.metricCard} 
-            activeOpacity={0.7}
-            onPress={() => {
-              console.log('HomeScreen: User tapped Recovery card, navigating to recovery-detail');
-              router.push('/recovery-detail');
-            }}
-          >
-            <View style={styles.metricHeader}>
-              <IconSymbol
-                ios_icon_name="heart.fill"
-                android_material_icon_name="favorite"
-                size={24}
-                color={getScoreColor(recoveryScore)}
-              />
-              <Text style={[styles.metricScore, { color: getScoreColor(recoveryScore) }]}>
-                {Math.round(recoveryScore)}
-              </Text>
-            </View>
-            <Text style={styles.metricTitle}>Recovery</Text>
-            <Text style={styles.metricValue}>{recoveryDisplay}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.metricCard} 
-            activeOpacity={0.7}
-            onPress={() => {
-              console.log('HomeScreen: User tapped BioAge card, navigating to longevity-detail');
-              router.push('/longevity-detail');
-            }}
-          >
-            <View style={styles.metricHeader}>
-              <IconSymbol
-                ios_icon_name="figure.walk"
-                android_material_icon_name="directions-walk"
-                size={24}
-                color={getScoreColor(bioAgeScore)}
-              />
-              <Text style={[styles.metricScore, { color: getScoreColor(bioAgeScore) }]}>
-                {Math.round(bioAgeScore)}
-              </Text>
-            </View>
-            <Text style={styles.metricTitle}>BioAge</Text>
-            <Text style={styles.metricValue}>{bioAgeDisplayText}</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Section 3: Performance Index Card */}
-        <TouchableOpacity 
-          style={styles.performanceCard}
-          activeOpacity={0.7}
-          onPress={() => {
-            console.log('HomeScreen: User tapped Performance Index card, navigating to Activity tab');
-            router.push('/(tabs)/activity');
-          }}
-        >
-          <View style={styles.performanceHeader}>
-            <Text style={styles.performanceTitle}>Performance Index</Text>
-            <Text style={styles.performanceValue}>{performanceDisplay}</Text>
-          </View>
-          <Text style={styles.performanceMessage}>{performanceMessage}</Text>
-        </TouchableOpacity>
-
-        {/* Regenerate Mock Data Button */}
-        <TouchableOpacity 
-          style={styles.regenerateButton}
-          onPress={handleGenerateMockData}
-          disabled={generatingMockData}
-        >
-          <IconSymbol
-            ios_icon_name="arrow.clockwise"
-            android_material_icon_name="refresh"
-            size={20}
-            color={colors.primary}
-          />
-          <Text style={styles.regenerateButtonText}>
-            {generatingMockData ? 'Generating...' : 'Regenerate Mock Data'}
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
+import { Stack, useRouter } from 'expo-router';
+import { useDailySync } from '@/hooks/useDailySync';
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  scrollView: {
-    flex: 1,
-  },
   scrollContent: {
-    padding: 20,
+    padding: 16,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 60,
   },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: colors.textSecondary,
-  },
-  loadingSubtext: {
-    marginTop: 8,
-    fontSize: 14,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  mockDataButton: {
-    marginTop: 16,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  mockDataButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  
-  heroSection: {
-    alignItems: 'center',
-    paddingTop: 20,
-    marginBottom: 32,
-  },
-  heroTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.textSecondary,
+  readinessCard: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: 16,
+    padding: 24,
     marginBottom: 24,
-  },
-  circleContainer: {
-    position: 'relative',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
   },
-  circleContent: {
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scoreNumber: {
-    fontSize: 64,
-    fontWeight: 'bold',
-    lineHeight: 64,
-  },
-  scoreLevel: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginTop: 4,
-  },
-  heroMessage: {
+  readinessLabel: {
     fontSize: 15,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    paddingHorizontal: 40,
+    color: colors.secondaryText,
+    marginBottom: 16,
   },
-  
+  gaugeContainer: {
+    marginBottom: 16,
+  },
+  readinessValue: {
+    fontSize: 56,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  readinessLevel: {
+    fontSize: 17,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  readinessMessage: {
+    fontSize: 15,
+    color: colors.secondaryText,
+    textAlign: 'center',
+  },
   metricsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
-    marginBottom: 20,
+    gap: 12,
+    marginBottom: 24,
   },
   metricCard: {
-    flex: 1,
-    minWidth: '45%',
-    backgroundColor: colors.card,
-    borderRadius: 16,
+    backgroundColor: colors.cardBackground,
+    borderRadius: 12,
     padding: 16,
-    height: 140,
+    flex: 1,
+    minWidth: '47%',
   },
   metricHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
   },
-  metricScore: {
-    fontSize: 20,
-    fontWeight: 'bold',
+  metricIcon: {
+    marginRight: 8,
   },
   metricTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 8,
+    fontSize: 13,
+    color: colors.secondaryText,
+    flex: 1,
   },
   metricValue: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
     color: colors.text,
+    marginBottom: 4,
   },
-  
-  performanceCard: {
-    backgroundColor: colors.card,
+  metricSubtext: {
+    fontSize: 13,
+    color: colors.secondaryText,
+  },
+  actionsCard: {
+    backgroundColor: colors.cardBackground,
     borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
+    padding: 16,
+    marginBottom: 24,
   },
-  performanceHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  performanceTitle: {
-    fontSize: 18,
+  actionsTitle: {
+    fontSize: 17,
     fontWeight: '600',
     color: colors.text,
+    marginBottom: 12,
   },
-  performanceValue: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: colors.primary,
-  },
-  performanceMessage: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    lineHeight: 20,
-  },
-  
-  regenerateButton: {
+  actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    backgroundColor: colors.card,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: colors.background,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: 8,
+    marginBottom: 8,
   },
-  regenerateButtonText: {
-    fontSize: 16,
+  actionIcon: {
+    marginRight: 12,
+  },
+  actionText: {
+    fontSize: 15,
+    color: colors.text,
+    flex: 1,
+  },
+  actionChevron: {
+    marginLeft: 8,
+  },
+  debugButton: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    alignItems: 'center',
+  },
+  debugButtonText: {
+    fontSize: 15,
     fontWeight: '600',
     color: colors.primary,
   },
 });
+
+export default function HomeScreen() {
+  const [loading, setLoading] = useState(false);
+  const [generatingMockData, setGeneratingMockData] = useState(false);
+  const router = useRouter();
+  const { metrics, syncNow } = useDailySync();
+
+  useEffect(() => {
+    console.log('HomeScreen: Component mounted');
+  }, []);
+
+  const handleRefresh = async () => {
+    console.log('HomeScreen: User initiated refresh');
+    setLoading(true);
+    await syncNow();
+    setLoading(false);
+  };
+
+  const handleRequestPermission = async () => {
+    console.log('HomeScreen: User tapped Request HealthKit Permission');
+    try {
+      const authorized = await HealthKitManager.requestAuthorization();
+      console.log('HomeScreen: HealthKit authorization result:', authorized);
+      if (authorized) {
+        await handleRefresh();
+      }
+    } catch (error) {
+      console.error('HomeScreen: Error requesting HealthKit permission:', error);
+    }
+  };
+
+  const handleGenerateMockData = async () => {
+    console.log('HomeScreen: User tapped Generate Mock Data');
+    setGeneratingMockData(true);
+    try {
+      await MockDataGenerator.generateMockData();
+      console.log('HomeScreen: Mock data generated successfully');
+      await handleRefresh();
+    } catch (error) {
+      console.error('HomeScreen: Error generating mock data:', error);
+    } finally {
+      setGeneratingMockData(false);
+    }
+  };
+
+  const calculateReadinessScore = (): number => {
+    if (!metrics) return 50;
+    
+    const recoveryWeight = 0.5;
+    const sleepWeight = 0.3;
+    const strainWeight = 0.2;
+
+    const recoveryScore = metrics.recoveryEfficiency ?? 50;
+    const sleepScore = metrics.sleepDuration
+      ? Math.min(100, (metrics.sleepDuration / 480) * 100)
+      : 50;
+    const strainScore = metrics.loadScore ? Math.max(0, 100 - metrics.loadScore) : 50;
+
+    const readiness =
+      recoveryScore * recoveryWeight +
+      sleepScore * sleepWeight +
+      strainScore * strainWeight;
+
+    return Math.round(readiness);
+  };
+
+  const getReadinessLevel = (score: number): string => {
+    if (score >= 80) return 'Peak Readiness';
+    if (score >= 65) return 'Good Readiness';
+    if (score >= 50) return 'Moderate Readiness';
+    return 'Low Readiness';
+  };
+
+  const getReadinessMessage = (score: number): string => {
+    if (score >= 80) return 'Your body is ready for intense training';
+    if (score >= 65) return 'Good day for moderate to high intensity';
+    if (score >= 50) return 'Consider lighter activity today';
+    return 'Focus on recovery and rest';
+  };
+
+  const getGradientColors = (score: number): [string, string] => {
+    if (score >= 80) return ['#34C759', '#30D158'];
+    if (score >= 65) return ['#007AFF', '#0A84FF'];
+    if (score >= 50) return ['#FF9500', '#FF9F0A'];
+    return ['#FF3B30', '#FF453A'];
+  };
+
+  const formatSleep = (minutes: number | undefined): string => {
+    if (!minutes) return '0h 0m';
+    const hours = Math.floor(minutes / 60);
+    const mins = Math.round(minutes % 60);
+    return `${hours}h ${mins}m`;
+  };
+
+  if (!metrics) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Stack.Screen
+          options={{
+            title: 'BioLoop',
+            headerShown: true,
+          }}
+        />
+        <EmptyDataView
+          icon="favorite"
+          iosIcon="heart.fill"
+          title="Welcome to BioLoop"
+          message="Grant HealthKit access to start tracking your health metrics and biological age."
+          actionTitle="Enable HealthKit"
+          action={handleRequestPermission}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  const readinessScore = calculateReadinessScore();
+  const readinessLevel = getReadinessLevel(readinessScore);
+  const readinessMessage = getReadinessMessage(readinessScore);
+  const [gradientStart, gradientEnd] = getGradientColors(readinessScore);
+  const scoreColor = getScoreColor(readinessScore);
+  const readinessText = readinessScore.toString();
+  const sleepText = formatSleep(metrics.sleepDuration);
+  const hrvText = metrics.hrv ? Math.round(metrics.hrv).toString() : '--';
+  const restingHRText = metrics.restingHR ? Math.round(metrics.restingHR).toString() : '--';
+  const vo2maxText = metrics.vo2max ? Math.round(metrics.vo2max).toString() : '--';
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <Stack.Screen
+        options={{
+          title: 'BioLoop',
+          headerShown: true,
+        }}
+      />
+      <ScrollView
+        style={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={loading} onRefresh={handleRefresh} />
+        }
+      >
+        <View style={styles.readinessCard}>
+          <Text style={styles.readinessLabel}>Today's Readiness</Text>
+          
+          <View style={styles.gaugeContainer}>
+            <Svg width={200} height={200}>
+              <Defs>
+                <LinearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <Stop offset="0%" stopColor={gradientStart} />
+                  <Stop offset="100%" stopColor={gradientEnd} />
+                </LinearGradient>
+              </Defs>
+              <Circle
+                cx={100}
+                cy={100}
+                r={80}
+                stroke={colors.cardBackground}
+                strokeWidth={16}
+                fill="none"
+              />
+              <Circle
+                cx={100}
+                cy={100}
+                r={80}
+                stroke="url(#gaugeGradient)"
+                strokeWidth={16}
+                fill="none"
+                strokeDasharray={`${(readinessScore / 100) * 502.4} 502.4`}
+                strokeLinecap="round"
+                rotation="-90"
+                origin="100, 100"
+              />
+            </Svg>
+          </View>
+
+          <Text style={[styles.readinessValue, { color: scoreColor }]}>
+            {readinessText}
+          </Text>
+          <Text style={[styles.readinessLevel, { color: scoreColor }]}>
+            {readinessLevel}
+          </Text>
+          <Text style={styles.readinessMessage}>{readinessMessage}</Text>
+        </View>
+
+        <View style={styles.metricsGrid}>
+          <TouchableOpacity
+            style={styles.metricCard}
+            onPress={() => router.push('/sleep-detail')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.metricHeader}>
+              <IconSymbol
+                ios_icon_name="moon.fill"
+                android_material_icon_name="bedtime"
+                size={20}
+                color="#5E5CE6"
+                style={styles.metricIcon}
+              />
+              <Text style={styles.metricTitle}>Sleep</Text>
+            </View>
+            <Text style={styles.metricValue}>{sleepText}</Text>
+            <Text style={styles.metricSubtext}>Last night</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.metricCard}
+            onPress={() => router.push('/recovery-detail')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.metricHeader}>
+              <IconSymbol
+                ios_icon_name="heart.fill"
+                android_material_icon_name="favorite"
+                size={20}
+                color="#FF2D55"
+                style={styles.metricIcon}
+              />
+              <Text style={styles.metricTitle}>HRV</Text>
+            </View>
+            <Text style={styles.metricValue}>{hrvText}</Text>
+            <Text style={styles.metricSubtext}>ms</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.metricCard}
+            onPress={() => router.push('/recovery-detail')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.metricHeader}>
+              <IconSymbol
+                ios_icon_name="waveform.path.ecg"
+                android_material_icon_name="monitor-heart"
+                size={20}
+                color="#FF9500"
+                style={styles.metricIcon}
+              />
+              <Text style={styles.metricTitle}>Resting HR</Text>
+            </View>
+            <Text style={styles.metricValue}>{restingHRText}</Text>
+            <Text style={styles.metricSubtext}>bpm</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.metricCard}
+            onPress={() => router.push('/strain-detail')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.metricHeader}>
+              <IconSymbol
+                ios_icon_name="wind"
+                android_material_icon_name="air"
+                size={20}
+                color="#32ADE6"
+                style={styles.metricIcon}
+              />
+              <Text style={styles.metricTitle}>VO2 Max</Text>
+            </View>
+            <Text style={styles.metricValue}>{vo2maxText}</Text>
+            <Text style={styles.metricSubtext}>ml/kg/min</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.actionsCard}>
+          <Text style={styles.actionsTitle}>Quick Actions</Text>
+          
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push('/(tabs)/activity')}
+            activeOpacity={0.7}
+          >
+            <IconSymbol
+              ios_icon_name="chart.bar.fill"
+              android_material_icon_name="bar-chart"
+              size={24}
+              color={colors.primary}
+              style={styles.actionIcon}
+            />
+            <Text style={styles.actionText}>View Performance</Text>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={colors.secondaryText}
+              style={styles.actionChevron}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push('/(tabs)/biology')}
+            activeOpacity={0.7}
+          >
+            <IconSymbol
+              ios_icon_name="figure.walk"
+              android_material_icon_name="directions-walk"
+              size={24}
+              color={colors.primary}
+              style={styles.actionIcon}
+            />
+            <Text style={styles.actionText}>Check Biological Age</Text>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={colors.secondaryText}
+              style={styles.actionChevron}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push('/metrics-glossary')}
+            activeOpacity={0.7}
+          >
+            <IconSymbol
+              ios_icon_name="book.fill"
+              android_material_icon_name="menu-book"
+              size={24}
+              color={colors.primary}
+              style={styles.actionIcon}
+            />
+            <Text style={styles.actionText}>Metrics Guide</Text>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={colors.secondaryText}
+              style={styles.actionChevron}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {Platform.OS === 'ios' && __DEV__ && (
+          <TouchableOpacity
+            style={styles.debugButton}
+            onPress={handleGenerateMockData}
+            disabled={generatingMockData}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.debugButtonText}>
+              {generatingMockData ? 'Generating...' : 'Generate Mock Data (Dev Only)'}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
