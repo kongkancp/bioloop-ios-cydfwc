@@ -241,7 +241,25 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Stack.Screen options={{ title: 'Home', headerShown: false }} />
+      <Stack.Screen 
+        options={{ 
+          title: 'Home', 
+          headerShown: true,
+          headerRight: () => (
+            <TouchableOpacity onPress={() => {
+              console.log('HomeScreen: User tapped info icon, navigating to metrics-glossary');
+              router.push('/metrics-glossary');
+            }}>
+              <IconSymbol
+                ios_icon_name="info.circle"
+                android_material_icon_name="info"
+                size={24}
+                color={colors.primary}
+              />
+            </TouchableOpacity>
+          ),
+        }} 
+      />
       
       <ScrollView
         style={styles.scrollView}
@@ -350,7 +368,14 @@ export default function HomeScreen() {
             <Text style={styles.metricValue}>{strainDisplay}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.metricCard} activeOpacity={0.7}>
+          <TouchableOpacity 
+            style={styles.metricCard} 
+            activeOpacity={0.7}
+            onPress={() => {
+              console.log('HomeScreen: User tapped Recovery card, navigating to recovery-detail');
+              router.push('/recovery-detail');
+            }}
+          >
             <View style={styles.metricHeader}>
               <IconSymbol
                 ios_icon_name="heart.fill"
@@ -369,7 +394,10 @@ export default function HomeScreen() {
           <TouchableOpacity 
             style={styles.metricCard} 
             activeOpacity={0.7}
-            onPress={() => router.push('/(tabs)/biology')}
+            onPress={() => {
+              console.log('HomeScreen: User tapped BioAge card, navigating to longevity-detail');
+              router.push('/longevity-detail');
+            }}
           >
             <View style={styles.metricHeader}>
               <IconSymbol
@@ -388,13 +416,20 @@ export default function HomeScreen() {
         </View>
 
         {/* Section 3: Performance Index Card */}
-        <View style={styles.performanceCard}>
+        <TouchableOpacity 
+          style={styles.performanceCard}
+          activeOpacity={0.7}
+          onPress={() => {
+            console.log('HomeScreen: User tapped Performance Index card, navigating to Activity tab');
+            router.push('/(tabs)/activity');
+          }}
+        >
           <View style={styles.performanceHeader}>
             <Text style={styles.performanceTitle}>Performance Index</Text>
             <Text style={styles.performanceValue}>{performanceDisplay}</Text>
           </View>
           <Text style={styles.performanceMessage}>{performanceMessage}</Text>
-        </View>
+        </TouchableOpacity>
 
         {/* Regenerate Mock Data Button */}
         <TouchableOpacity 

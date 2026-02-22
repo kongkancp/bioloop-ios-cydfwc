@@ -1,24 +1,25 @@
 
 import { useDailySync } from '@/hooks/useDailySync';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors } from '@/styles/commonStyles';
+import { Stack, useRouter } from 'expo-router';
 import InsufficientDataBanner from '@/components/InsufficientDataBanner';
 import BioAgeHeroCard from '@/components/BioAgeHeroCard';
-import { colors } from '@/styles/commonStyles';
-import { Stack } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import React, { useMemo } from 'react';
+import { calculateAge } from '@/utils/age';
 import {
   calculateBioAgeIndices,
   hasMinimumData,
   calculateRawBioAge,
 } from '@/utils/bioAge';
-import { calculateAge } from '@/utils/age';
 import { IconSymbol } from '@/components/IconSymbol';
 
 const styles = StyleSheet.create({
@@ -138,6 +139,7 @@ const styles = StyleSheet.create({
 
 export default function BiologyScreen() {
   const { metrics, baselines, loading, userProfile } = useDailySync();
+  const router = useRouter();
 
   // Calculate BioAge components
   const bioAgeData = useMemo(() => {
@@ -263,11 +265,19 @@ export default function BiologyScreen() {
         )}
 
         {bioAgeData && (
-          <BioAgeHeroCard
-            bioAge={bioAgeData.bioAge}
-            chronologicalAge={bioAgeData.chronologicalAge}
-            ageGap={bioAgeData.ageGap}
-          />
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => {
+              console.log('BiologyScreen: User tapped BioAge card, navigating to longevity-detail');
+              router.push('/longevity-detail');
+            }}
+          >
+            <BioAgeHeroCard
+              bioAge={bioAgeData.bioAge}
+              chronologicalAge={bioAgeData.chronologicalAge}
+              ageGap={bioAgeData.ageGap}
+            />
+          </TouchableOpacity>
         )}
 
         <View style={styles.componentsCard}>

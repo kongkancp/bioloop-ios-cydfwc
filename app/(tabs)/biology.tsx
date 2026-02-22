@@ -7,10 +7,11 @@ import {
   ScrollView,
   Platform,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/styles/commonStyles';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import React, { useMemo } from 'react';
 import InsufficientDataBanner from '@/components/InsufficientDataBanner';
 import BioAgeHeroCard from '@/components/BioAgeHeroCard';
@@ -139,6 +140,7 @@ const styles = StyleSheet.create({
 
 export default function BiologyScreen() {
   const { metrics, baselines, loading, userProfile } = useDailySync();
+  const router = useRouter();
 
   // Calculate BioAge components
   const bioAgeData = useMemo(() => {
@@ -264,11 +266,19 @@ export default function BiologyScreen() {
         )}
 
         {bioAgeData && (
-          <BioAgeHeroCard
-            bioAge={bioAgeData.bioAge}
-            chronologicalAge={bioAgeData.chronologicalAge}
-            ageGap={bioAgeData.ageGap}
-          />
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => {
+              console.log('BiologyScreen: User tapped BioAge card, navigating to longevity-detail');
+              router.push('/longevity-detail');
+            }}
+          >
+            <BioAgeHeroCard
+              bioAge={bioAgeData.bioAge}
+              chronologicalAge={bioAgeData.chronologicalAge}
+              ageGap={bioAgeData.ageGap}
+            />
+          </TouchableOpacity>
         )}
 
         <View style={styles.componentsCard}>
