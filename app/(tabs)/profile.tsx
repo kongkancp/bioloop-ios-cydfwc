@@ -98,6 +98,52 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.textSecondary,
   },
+  premiumRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  premiumLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    flex: 1,
+  },
+  premiumValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  manageButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  manageButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  restoreButton: {
+    backgroundColor: colors.border,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  restoreButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  promoText: {
+    fontSize: 15,
+    color: '#FFFFFF',
+    opacity: 0.9,
+    marginBottom: 16,
+    lineHeight: 22,
+  },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -189,7 +235,7 @@ const styles = StyleSheet.create({
 });
 
 export default function ProfileScreen() {
-  const { isPremium, isLoading, products } = useSubscription();
+  const { isSubscribed, currentSubscription, expirationDate, isLoading, purchase, restorePurchases } = useSubscription();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const router = useRouter();
 
@@ -201,6 +247,35 @@ export default function ProfileScreen() {
   const handleUpgradeToPremium = () => {
     console.log('User tapped Upgrade to Premium');
     router.push('/subscription');
+  };
+
+  const handleManageSubscription = () => {
+    console.log('User tapped Manage Subscription');
+    if (Platform.OS === 'ios') {
+      Linking.openURL('https://apps.apple.com/account/subscriptions');
+    } else {
+      Alert.alert(
+        'Manage Subscription',
+        'Please visit the Google Play Store to manage your subscription.'
+      );
+    }
+  };
+
+  const handleRestorePurchases = async () => {
+    console.log('User tapped Restore Purchases');
+    const success = await restorePurchases();
+    
+    if (success) {
+      Alert.alert(
+        'Success',
+        'Your purchases have been restored successfully!'
+      );
+    } else {
+      Alert.alert(
+        'No Purchases Found',
+        'We could not find any previous purchases to restore.'
+      );
+    }
   };
 
   const handleHealthKitPermissions = () => {
@@ -256,8 +331,19 @@ export default function ProfileScreen() {
     setShowDeleteModal(false);
   };
 
+  const formatDate = (date: Date | undefined): string => {
+    if (!date) return 'N/A';
+    const options: Intl.DateTimeFormatOptions = { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    };
+    return date.toLocaleDateString(undefined, options);
+  };
+
   const loadingIndicator = isLoading;
-  const userIsPremium = isPremium;
+  const userIsSubscribed = isSubscribed;
+  const subscriptionExpiry = expirationDate;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -282,28 +368,49 @@ export default function ProfileScreen() {
             <View style={styles.card}>
               <ActivityIndicator size="small" color={colors.primary} />
             </View>
-          ) : userIsPremium ? (
+          ) : userIsSubscribed ? (
             <View style={styles.card}>
               <View style={styles.premiumBadge}>
                 <Text style={styles.premiumBadgeText}>PREMIUM</Text>
               </View>
-              <Text style={styles.premiumTitle}>Premium Member</Text>
-              <Text style={styles.premiumDesc}>
-                You have access to all premium features
-              </Text>
+              <Text style={styles.premiumTitle}>BioLoop Premium</Text>
+              <Text style={styles.premiumDesc}>Active</Text>
+              
+              <View style={styles.premiumRow}>
+                <Text style={styles.premiumLabel}>Expires</Text>
+                <Text style={styles.premiumValue}>
+                  {formatDate(subscriptionExpiry)}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.manageButton}
+                onPress={handleManageSubscription}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.manageButtonText}>Manage Subscription</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             <View style={styles.subscriptionCard}>
               <Text style={styles.subscriptionTitle}>Upgrade to Premium</Text>
-              <Text style={styles.subscriptionDesc}>
-                Unlock advanced analytics, unlimited history, and more
+              <Text style={styles.promoText}>
+                Unlock full history, advanced insights, and more
               </Text>
               <TouchableOpacity
                 style={styles.upgradeButton}
                 onPress={handleUpgradeToPremium}
                 activeOpacity={0.8}
               >
-                <Text style={styles.upgradeButtonText}>View Plans</Text>
+                <Text style={styles.upgradeButtonText}>Subscribe - $1.99/month</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.restoreButton}
+                onPress={handleRestorePurchases}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.restoreButtonText}>Restore Purchases</Text>
               </TouchableOpacity>
             </View>
           )}
