@@ -16,12 +16,17 @@ export default function BioAgeHeroCard({
   ageGap,
 }: BioAgeHeroCardProps) {
   // Calculate age gap text
+  // ageGap = chronologicalAge - bioAge
+  // Positive ageGap means you're YOUNGER (chronological > bio)
+  // Negative ageGap means you're OLDER (chronological < bio)
   const ageGapText = React.useMemo(() => {
-    if (ageGap < -0.5) {
+    if (ageGap > 0.5) {
+      // Positive gap = younger
+      return `${ageGap.toFixed(1)} years younger`;
+    } else if (ageGap < -0.5) {
+      // Negative gap = older
       const absGap = Math.abs(ageGap);
-      return `${absGap.toFixed(1)} years younger`;
-    } else if (ageGap > 0.5) {
-      return `${ageGap.toFixed(1)} years older`;
+      return `${absGap.toFixed(1)} years older`;
     }
     return 'Right on target';
   }, [ageGap]);
