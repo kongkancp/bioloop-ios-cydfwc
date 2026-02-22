@@ -1,14 +1,4 @@
 
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '@/styles/commonStyles';
-import BioLoopDebugger from '@/utils/debugHelper';
-import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
-import React, { useState, useEffect } from 'react';
-import HealthKitManager from '@/services/HealthKitManager';
-import EmptyDataView from '@/components/EmptyDataView';
-import { IconSymbol } from '@/components/IconSymbol';
-import { calculateBioAgeWithProfile } from '@/utils/bioAge';
-import { getScoreColor } from '@/utils/scoreColor';
 import {
   View,
   Text,
@@ -19,9 +9,19 @@ import {
   Platform,
   RefreshControl,
 } from 'react-native';
+import EmptyDataView from '@/components/EmptyDataView';
+import { calculateBioAgeWithProfile } from '@/utils/bioAge';
+import HealthKitManager from '@/services/HealthKitManager';
 import MockDataGenerator from '@/services/MockDataGenerator';
-import { useRouter } from 'expo-router';
+import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { useDailySync } from '@/hooks/useDailySync';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import BioLoopDebugger from '@/utils/debugHelper';
+import { colors } from '@/styles/commonStyles';
+import { getScoreColor } from '@/utils/scoreColor';
+import { IconSymbol } from '@/components/IconSymbol';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'expo-router';
 
 const styles = StyleSheet.create({
   container: {
@@ -30,6 +30,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
+    paddingBottom: 100,
   },
   header: {
     flexDirection: 'row',
@@ -283,7 +284,7 @@ export default function HomeScreen() {
 
   if (!metrics) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Text style={styles.greeting}>BioLoop</Text>
@@ -316,7 +317,7 @@ export default function HomeScreen() {
   const dateText = formatDate(new Date());
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.greeting}>{greetingText}</Text>
@@ -338,7 +339,8 @@ export default function HomeScreen() {
       </View>
       
       <ScrollView
-        style={styles.scrollContent}
+        contentContainerStyle={styles.scrollContent}
+        contentInsetAdjustmentBehavior="automatic"
         refreshControl={
           <RefreshControl refreshing={loading} onRefresh={handleRefresh} />
         }

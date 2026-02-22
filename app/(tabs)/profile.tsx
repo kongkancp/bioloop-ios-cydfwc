@@ -26,7 +26,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: 100,
   },
   section: {
     marginTop: 24,
@@ -260,7 +260,7 @@ export default function ProfileScreen() {
   const userIsPremium = isPremium;
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <Stack.Screen
         options={{
           title: 'Profile',
@@ -275,6 +275,7 @@ export default function ProfileScreen() {
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
+        contentInsetAdjustmentBehavior="automatic"
       >
         <View style={styles.section}>
           {loadingIndicator ? (

@@ -1,11 +1,6 @@
 
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '@/styles/commonStyles';
-import React, { useState } from 'react';
 import { SubscriptionProduct } from '@/types/subscription';
-import { IconSymbol } from '@/components/IconSymbol';
-import { useSubscription } from '@/hooks/useSubscription';
-import { Stack, useRouter } from 'expo-router';
+import React, { useState } from 'react';
 import DataManager from '@/services/DataManager';
 import {
   View,
@@ -18,6 +13,11 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Stack, useRouter } from 'expo-router';
+import { useSubscription } from '@/hooks/useSubscription';
+import { colors } from '@/styles/commonStyles';
+import { IconSymbol } from '@/components/IconSymbol';
 
 const styles = StyleSheet.create({
   container: {
@@ -25,7 +25,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: 100,
   },
   section: {
     marginTop: 24,
@@ -252,7 +252,7 @@ export default function ProfileScreen() {
   const userIsPremium = isPremium;
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <Stack.Screen
         options={{
           title: 'Profile',
@@ -267,6 +267,7 @@ export default function ProfileScreen() {
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
+        contentInsetAdjustmentBehavior="automatic"
       >
         <View style={styles.section}>
           {loadingIndicator ? (
@@ -343,7 +344,9 @@ export default function ProfileScreen() {
             />
             <View style={styles.menuItemContent}>
               <Text style={styles.menuItemTitle}>HealthKit Permissions</Text>
-              <Text style={styles.menuItemSubtitle}>Manage data access</Text>
+              <Text style={styles.menuItemSubtitle}>
+                Manage data access
+              </Text>
             </View>
             <IconSymbol
               ios_icon_name="chevron.right"

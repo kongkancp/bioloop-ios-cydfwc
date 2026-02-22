@@ -85,6 +85,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
+    paddingBottom: 100,
   },
   loadingContainer: {
     flex: 1,
@@ -362,7 +363,11 @@ export default function BiologyScreen() {
           headerShown: true,
         }}
       />
-      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        style={styles.container} 
+        contentContainerStyle={styles.scrollContent}
+        contentInsetAdjustmentBehavior="automatic"
+      >
         {bioAgeData ? (
           <>
             <BioAgeHeroCard 

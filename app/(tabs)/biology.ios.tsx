@@ -1,6 +1,9 @@
 
+import EmptyDataView from '@/components/EmptyDataView';
+import React, { useMemo } from 'react';
+import { useDailySync } from '@/hooks/useDailySync';
+import { calculateAge } from '@/utils/age';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '@/styles/commonStyles';
 import {
   calculateBioAgeIndices,
   hasMinimumData,
@@ -14,14 +17,11 @@ import {
   ActivityIndicator,
   TouchableOpacity,
 } from 'react-native';
-import { calculateAge } from '@/utils/age';
-import { IconSymbol } from '@/components/IconSymbol';
 import BioAgeHeroCard from '@/components/BioAgeHeroCard';
-import React, { useMemo } from 'react';
-import InsufficientDataBanner from '@/components/InsufficientDataBanner';
-import EmptyDataView from '@/components/EmptyDataView';
 import { Stack, useRouter } from 'expo-router';
-import { useDailySync } from '@/hooks/useDailySync';
+import { colors } from '@/styles/commonStyles';
+import InsufficientDataBanner from '@/components/InsufficientDataBanner';
+import { IconSymbol } from '@/components/IconSymbol';
 
 // Helper function to get age group norms
 function getAgeGroupNorms(age: number) {
@@ -84,6 +84,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
+    paddingBottom: 100,
   },
   loadingContainer: {
     flex: 1,
@@ -361,7 +362,11 @@ export default function BiologyScreen() {
           headerShown: true,
         }}
       />
-      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        style={styles.container} 
+        contentContainerStyle={styles.scrollContent}
+        contentInsetAdjustmentBehavior="automatic"
+      >
         {bioAgeData ? (
           <>
             <BioAgeHeroCard 
