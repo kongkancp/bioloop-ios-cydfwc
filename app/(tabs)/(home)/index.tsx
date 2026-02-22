@@ -329,7 +329,14 @@ export default function HomeScreen() {
             <Text style={styles.metricValue}>{sleepDisplay}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.metricCard} activeOpacity={0.7}>
+          <TouchableOpacity 
+            style={styles.metricCard} 
+            activeOpacity={0.7}
+            onPress={() => {
+              console.log('HomeScreen: User tapped Strain card, navigating to strain-detail');
+              router.push('/strain-detail');
+            }}
+          >
             <View style={styles.metricHeader}>
               <IconSymbol
                 ios_icon_name="flame.fill"
