@@ -20,7 +20,10 @@ import {
   getLongevityScoreLevel,
   LongevityAnalysis,
 } from '@/utils/longevity';
+import { BioCard } from '@/components/BioCard';
 import { BioAgeData } from '@/utils/bioAge';
+import { Colors } from '@/constants/Colors';
+import Svg, { Circle } from 'react-native-svg';
 
 const USER_DOB_KEY = 'bioloop_user_dob';
 const USER_HEIGHT_KEY = 'bioloop_user_height';
@@ -33,53 +36,55 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 80,
+    paddingBottom: 100,
   },
-  card: {
-    backgroundColor: colors.cardBackground,
-    borderRadius: 16,
-    padding: 20,
+  label: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: Colors.textMuted,
     marginBottom: 16,
-  },
-  heroCard: {
-    alignItems: 'center',
-  },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: colors.secondaryText,
-    marginBottom: 12,
+    textAlign: 'center',
   },
   scoreContainer: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    marginVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  scoreContent: {
+    marginLeft: 20,
   },
   scoreValue: {
-    fontSize: 56,
+    fontSize: 48,
     fontWeight: 'bold',
+    color: Colors.textPrimary,
   },
-  scoreUnit: {
-    fontSize: 28,
-    color: colors.secondaryText,
-    marginLeft: 4,
-  },
-  levelText: {
-    fontSize: 15,
-    fontWeight: '500',
+  scoreLabel: {
+    fontSize: 17,
+    fontWeight: '600',
     marginTop: 4,
   },
-  comparisonContainer: {
-    marginTop: 16,
+  description: {
+    fontSize: 13,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    marginTop: 12,
+  },
+  cardTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginBottom: 20,
   },
   ageRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-around',
-    marginVertical: 16,
+    justifyContent: 'center',
+    marginVertical: 20,
   },
   ageColumn: {
     alignItems: 'center',
+    marginHorizontal: 20,
   },
   ageValue: {
     fontSize: 48,
@@ -87,29 +92,24 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   ageLabel: {
-    fontSize: 13,
-    color: colors.secondaryText,
-    marginBottom: 4,
-  },
-  ageSubLabel: {
-    fontSize: 11,
-    color: colors.secondaryText,
+    fontSize: 15,
+    color: Colors.textMuted,
   },
   arrowContainer: {
     marginHorizontal: 20,
   },
-  messageContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
+  gapBadge: {
+    backgroundColor: Colors.bgSurface,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
     borderRadius: 12,
-    marginTop: 16,
+    alignSelf: 'center',
+    marginTop: 8,
   },
-  messageText: {
+  gapText: {
     fontSize: 15,
-    flex: 1,
-    marginLeft: 12,
-    textAlign: 'center',
+    fontWeight: '600',
+    color: Colors.textPrimary,
   },
   loadingContainer: {
     flex: 1,
@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: Colors.borderSubtle,
   },
   factorIcon: {
     marginRight: 16,
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
   factorName: {
     fontSize: 15,
     fontWeight: '600',
-    color: colors.text,
+    color: Colors.textPrimary,
   },
   factorScore: {
     fontSize: 15,
@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
   },
   factorDescription: {
     fontSize: 13,
-    color: colors.secondaryText,
+    color: Colors.textMuted,
     marginBottom: 8,
   },
   factorImpact: {
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
   },
   factorRecommendation: {
     fontSize: 12,
-    color: colors.secondaryText,
+    color: Colors.textMuted,
     fontStyle: 'italic',
   },
   summaryRow: {
@@ -165,212 +165,208 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: Colors.borderSubtle,
   },
   summaryLabel: {
     fontSize: 15,
-    color: colors.secondaryText,
+    color: Colors.textMuted,
   },
   summaryValue: {
     fontSize: 17,
     fontWeight: '600',
-    color: colors.text,
+    color: Colors.textPrimary,
   },
   emptyText: {
     fontSize: 15,
-    color: colors.secondaryText,
+    color: Colors.textMuted,
     textAlign: 'center',
     marginTop: 20,
   },
 });
 
-interface LongevityHeroCardProps {
+interface RingGaugeProps {
+  size: number;
+  lineWidth: number;
+  value: number;
+  color: string;
+}
+
+function RingGauge({ size, lineWidth, value, color }: RingGaugeProps) {
+  const radius = (size - lineWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const progress = Math.max(0, Math.min(100, value)) / 100;
+  const strokeDashoffset = circumference * (1 - progress);
+
+  return (
+    <Svg width={size} height={size}>
+      <Circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        stroke={Colors.borderSubtle}
+        strokeWidth={lineWidth}
+        fill="none"
+      />
+      <Circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        stroke={color}
+        strokeWidth={lineWidth}
+        fill="none"
+        strokeDasharray={circumference}
+        strokeDashoffset={strokeDashoffset}
+        strokeLinecap="round"
+        rotation="-90"
+        origin={`${size / 2}, ${size / 2}`}
+      />
+    </Svg>
+  );
+}
+
+interface LongevityScoreCardProps {
   score: number;
 }
 
-function LongevityHeroCard({ score }: LongevityHeroCardProps) {
-  const levelText = getLongevityScoreLevel(score);
+function LongevityScoreCard({ score }: LongevityScoreCardProps) {
   const scoreColor = getLongevityScoreColor(score);
+  const scoreLabel = getLongevityScoreLevel(score);
   const scoreValueText = Math.round(score).toString();
-  const unitText = '/100';
+  const labelText = 'Longevity Score';
+  const descriptionText = 'Based on biological age vs chronological age';
 
   return (
-    <View style={[styles.card, styles.heroCard]}>
-      <Text style={styles.sectionTitle}>Longevity Score</Text>
+    <BioCard accentColor={Colors.accentPurple}>
+      <Text style={styles.label}>{labelText}</Text>
       <View style={styles.scoreContainer}>
-        <Text style={[styles.scoreValue, { color: scoreColor }]}>
-          {scoreValueText}
-        </Text>
-        <Text style={styles.scoreUnit}>{unitText}</Text>
+        <RingGauge size={72} lineWidth={8} value={score} color={scoreColor} />
+        <View style={styles.scoreContent}>
+          <Text style={styles.scoreValue}>{scoreValueText}</Text>
+          <Text style={[styles.scoreLabel, { color: scoreColor }]}>
+            {scoreLabel}
+          </Text>
+        </View>
       </View>
-      <Text style={[styles.levelText, { color: scoreColor }]}>
-        {levelText}
-      </Text>
-    </View>
+      <Text style={styles.description}>{descriptionText}</Text>
+    </BioCard>
   );
 }
 
 interface AgeComparisonCardProps {
-  bioAge: number;
   chronAge: number;
-  ageGap: number;
+  bioAge: number;
+  gap: number;
 }
 
-function AgeComparisonCard({ bioAge, chronAge, ageGap }: AgeComparisonCardProps) {
-  const gapColor = useMemo(() => {
-    return ageGap > 0 ? colors.success : colors.error;
-  }, [ageGap]);
-
-  const arrowIcon = useMemo(() => {
-    return ageGap > 0 ? 'arrow-back' : 'arrow-forward';
-  }, [ageGap]);
-
-  const messageIcon = useMemo(() => {
-    return ageGap > 0 ? 'check-circle' : 'warning';
-  }, [ageGap]);
-
-  const messageText = useMemo(() => {
-    if (ageGap > 5) {
-      const gapText = ageGap.toFixed(1);
-      return `Excellent! Body is ${gapText} years younger`;
-    }
-    if (ageGap > 2) {
-      const gapText = ageGap.toFixed(1);
-      return `Great! ${gapText} years younger`;
-    }
-    if (ageGap > 0) {
-      return 'Good! Slightly younger';
-    }
-    if (ageGap > -2) {
-      return 'Ages match closely';
-    }
-    const absGapText = Math.abs(ageGap).toFixed(1);
-    return `Body aging ${absGapText} years faster`;
-  }, [ageGap]);
-
-  const messageBackgroundColor = useMemo(() => {
-    return ageGap > 0 ? `${colors.success}26` : `${colors.warning}26`;
-  }, [ageGap]);
-
-  const messageBorderColor = useMemo(() => {
-    return ageGap > 0 ? colors.success : colors.warning;
-  }, [ageGap]);
-
+function AgeComparisonCard({ chronAge, bioAge, gap }: AgeComparisonCardProps) {
+  const gapColor = gap > 0 ? Colors.accentGreen : Colors.accentRed;
+  const arrowIconAndroid = gap > 0 ? 'arrow-back' : 'arrow-forward';
+  const arrowIconIOS = gap > 0 ? 'arrow.left' : 'arrow.right';
+  
   const chronAgeText = chronAge.toString();
   const bioAgeText = bioAge.toFixed(1);
   const chronLabelText = 'Chronological';
-  const chronSubLabelText = 'Actual age';
   const bioLabelText = 'Biological';
-  const bioSubLabelText = "Body's age";
+  const cardTitleText = 'Age Comparison';
+  
+  const gapAbsValue = Math.abs(gap).toFixed(1);
+  const gapEmoji = gap > 0 ? '🌟' : '⚠️';
+  const gapMessage = gap > 0 
+    ? `${gapEmoji} ${gapAbsValue} years younger`
+    : `${gapEmoji} ${gapAbsValue} years older`;
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.sectionTitle}>Age Comparison</Text>
-      <View style={styles.comparisonContainer}>
-        <View style={styles.ageRow}>
-          <View style={styles.ageColumn}>
-            <Text style={[styles.ageValue, { color: colors.secondaryText }]}>
-              {chronAgeText}
-            </Text>
-            <Text style={styles.ageLabel}>{chronLabelText}</Text>
-            <Text style={styles.ageSubLabel}>{chronSubLabelText}</Text>
-          </View>
-
-          <View style={styles.arrowContainer}>
-            <IconSymbol
-              ios_icon_name="arrow.left"
-              android_material_icon_name={arrowIcon}
-              size={32}
-              color={gapColor}
-            />
-          </View>
-
-          <View style={styles.ageColumn}>
-            <Text style={[styles.ageValue, { color: gapColor }]}>
-              {bioAgeText}
-            </Text>
-            <Text style={styles.ageLabel}>{bioLabelText}</Text>
-            <Text style={styles.ageSubLabel}>{bioSubLabelText}</Text>
-          </View>
+    <BioCard>
+      <Text style={styles.cardTitle}>{cardTitleText}</Text>
+      <View style={styles.ageRow}>
+        <View style={styles.ageColumn}>
+          <Text style={styles.ageValue}>{chronAgeText}</Text>
+          <Text style={styles.ageLabel}>{chronLabelText}</Text>
         </View>
 
-        <View
-          style={[
-            styles.messageContainer,
-            {
-              backgroundColor: messageBackgroundColor,
-              borderWidth: 1,
-              borderColor: messageBorderColor,
-            },
-          ]}
-        >
+        <View style={styles.arrowContainer}>
           <IconSymbol
-            ios_icon_name={ageGap > 0 ? 'checkmark.circle.fill' : 'exclamationmark.triangle.fill'}
-            android_material_icon_name={messageIcon}
+            ios_icon_name={arrowIconIOS}
+            android_material_icon_name={arrowIconAndroid}
             size={24}
-            color={ageGap > 0 ? colors.success : colors.warning}
+            color={gapColor}
           />
-          <Text style={[styles.messageText, { color: colors.text }]}>
-            {messageText}
+        </View>
+
+        <View style={styles.ageColumn}>
+          <Text style={[styles.ageValue, { color: gapColor }]}>
+            {bioAgeText}
           </Text>
+          <Text style={styles.ageLabel}>{bioLabelText}</Text>
         </View>
       </View>
-    </View>
+
+      <View style={styles.gapBadge}>
+        <Text style={styles.gapText}>{gapMessage}</Text>
+      </View>
+    </BioCard>
   );
 }
 
-interface SummaryCardProps {
-  analysis: LongevityAnalysis;
+interface HealthSpanCardProps {
+  estimatedHealthSpan: number;
+  potentialGain: number;
 }
 
-function SummaryCard({ analysis }: SummaryCardProps) {
-  const healthSpanText = `${analysis.estimatedHealthSpan} years`;
-  const potentialGainText = `+${analysis.potentialGain.toFixed(1)} years`;
+function HealthSpanCard({ estimatedHealthSpan, potentialGain }: HealthSpanCardProps) {
+  const healthSpanText = `${estimatedHealthSpan} years`;
+  const potentialGainText = `+${potentialGain.toFixed(1)} years`;
+  const cardTitleText = 'Health Span Estimate';
+  const healthSpanLabelText = 'Estimated Health Span';
+  const potentialGainLabelText = 'Potential Gain';
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.sectionTitle}>Health Span Estimate</Text>
+    <BioCard>
+      <Text style={styles.cardTitle}>{cardTitleText}</Text>
       
       <View style={styles.summaryRow}>
-        <Text style={styles.summaryLabel}>Estimated Health Span</Text>
+        <Text style={styles.summaryLabel}>{healthSpanLabelText}</Text>
         <Text style={styles.summaryValue}>{healthSpanText}</Text>
       </View>
       
       <View style={[styles.summaryRow, { borderBottomWidth: 0 }]}>
-        <Text style={styles.summaryLabel}>Potential Gain</Text>
-        <Text style={[styles.summaryValue, { color: colors.success }]}>
+        <Text style={styles.summaryLabel}>{potentialGainLabelText}</Text>
+        <Text style={[styles.summaryValue, { color: Colors.accentGreen }]}>
           {potentialGainText}
         </Text>
       </View>
-    </View>
+    </BioCard>
   );
 }
 
 interface LongevityFactorsCardProps {
-  analysis: LongevityAnalysis;
+  factors: LongevityAnalysis['factors'];
 }
 
-function LongevityFactorsCard({ analysis }: LongevityFactorsCardProps) {
-  if (analysis.factors.length === 0) {
+function LongevityFactorsCard({ factors }: LongevityFactorsCardProps) {
+  const cardTitleText = 'Longevity Factors';
+  const emptyText = 'No factor data available';
+
+  if (factors.length === 0) {
     return (
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Longevity Factors</Text>
-        <Text style={styles.emptyText}>No factor data available</Text>
-      </View>
+      <BioCard>
+        <Text style={styles.cardTitle}>{cardTitleText}</Text>
+        <Text style={styles.emptyText}>{emptyText}</Text>
+      </BioCard>
     );
   }
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.sectionTitle}>Longevity Factors</Text>
+    <BioCard>
+      <Text style={styles.cardTitle}>{cardTitleText}</Text>
       
-      {analysis.factors.map((factor, index) => {
-        const isLast = index === analysis.factors.length - 1;
+      {factors.map((factor, index) => {
+        const isLast = index === factors.length - 1;
         const scoreText = Math.round(factor.score).toString();
         const impactText = factor.yearImpact >= 0 
           ? `+${factor.yearImpact.toFixed(1)} years`
           : `${factor.yearImpact.toFixed(1)} years`;
-        const impactColor = factor.yearImpact >= 0 ? colors.success : colors.error;
+        const impactColor = factor.yearImpact >= 0 ? Colors.accentGreen : Colors.accentRed;
 
         return (
           <View 
@@ -409,7 +405,7 @@ function LongevityFactorsCard({ analysis }: LongevityFactorsCardProps) {
           </View>
         );
       })}
-    </View>
+    </BioCard>
   );
 }
 
@@ -419,7 +415,6 @@ export default function LongevityDetailView() {
   const [height, setHeight] = useState<number | undefined>(undefined);
   const [bioAgeData, setBioAgeData] = useState<BioAgeData | null>(null);
 
-  // Load user profile data
   useEffect(() => {
     async function loadProfileData() {
       try {
@@ -445,7 +440,6 @@ export default function LongevityDetailView() {
     loadProfileData();
   }, []);
 
-  // Load BioAge data
   useEffect(() => {
     async function loadBioAgeData() {
       if (!metrics) return;
@@ -466,7 +460,6 @@ export default function LongevityDetailView() {
     loadBioAgeData();
   }, [metrics]);
 
-  // Calculate longevity analysis
   const longevityAnalysis = useMemo(() => {
     if (!chronAge) {
       console.log('Cannot calculate longevity: no chronological age');
@@ -500,6 +493,8 @@ export default function LongevityDetailView() {
   }
 
   if (!longevityAnalysis) {
+    const emptyStateText = 'Insufficient data for longevity analysis';
+    
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <Stack.Screen
@@ -509,8 +504,14 @@ export default function LongevityDetailView() {
           }}
         />
         <View style={styles.loadingContainer}>
-          <Text style={styles.emptyText}>
-            Insufficient data for longevity analysis
+          <IconSymbol
+            ios_icon_name="heart.text.square.fill"
+            android_material_icon_name="favorite"
+            size={64}
+            color={Colors.textMuted}
+          />
+          <Text style={[styles.emptyText, { marginTop: 16 }]}>
+            {emptyStateText}
           </Text>
         </View>
       </SafeAreaView>
@@ -531,14 +532,17 @@ export default function LongevityDetailView() {
         style={styles.container} 
         contentContainerStyle={styles.scrollContent}
       >
-        <LongevityHeroCard score={longevityAnalysis.longevityScore} />
+        <LongevityScoreCard score={longevityAnalysis.longevityScore} />
         <AgeComparisonCard 
-          bioAge={bioAge} 
           chronAge={chronAge} 
-          ageGap={longevityAnalysis.ageGap}
+          bioAge={bioAge} 
+          gap={longevityAnalysis.ageGap}
         />
-        <SummaryCard analysis={longevityAnalysis} />
-        <LongevityFactorsCard analysis={longevityAnalysis} />
+        <HealthSpanCard 
+          estimatedHealthSpan={longevityAnalysis.estimatedHealthSpan}
+          potentialGain={longevityAnalysis.potentialGain}
+        />
+        <LongevityFactorsCard factors={longevityAnalysis.factors} />
       </ScrollView>
     </SafeAreaView>
   );
