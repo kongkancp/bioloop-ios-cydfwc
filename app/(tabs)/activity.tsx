@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     alignItems: 'center',
     justifyContent: 'center',
-    top: 60,
+    top: 50,
   },
   gaugeValue: {
     fontSize: 56,
@@ -239,8 +239,10 @@ function getPerformanceLevel(index: number): string {
 }
 
 function PerformanceGauge({ index }: { index: number }) {
-  const radius = 90;
-  const strokeWidth = 20;
+  // Standardized gauge: size=160, lineWidth=14
+  const gaugeSize = 160;
+  const strokeWidth = 14;
+  const radius = (gaugeSize - strokeWidth) / 2;
   const circumference = Math.PI * radius;
   const progress = (index / 100) * 0.5;
   const strokeDashoffset = circumference - progress * circumference;
@@ -252,27 +254,27 @@ function PerformanceGauge({ index }: { index: number }) {
     <View style={styles.gaugeCard}>
       <Text style={styles.gaugeTitle}>Performance Index</Text>
       <View style={styles.gaugeContainer}>
-        <Svg width={radius * 2 + strokeWidth} height={radius + strokeWidth + 20}>
+        <Svg width={gaugeSize} height={gaugeSize / 2 + 20}>
           <Defs>
             <LinearGradient id="performanceGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <Stop offset="0%" stopColor="#007AFF" />
-              <Stop offset="100%" stopColor="#34C759" />
+              <Stop offset="0%" stopColor="#0A84FF" />
+              <Stop offset="100%" stopColor="#30D158" />
             </LinearGradient>
           </Defs>
           <Circle
-            cx={radius + strokeWidth / 2}
-            cy={radius + strokeWidth / 2}
+            cx={gaugeSize / 2}
+            cy={gaugeSize / 2}
             r={radius}
             stroke={colors.border}
             strokeWidth={strokeWidth}
             fill="none"
             strokeDasharray={`${circumference} ${circumference}`}
             strokeDashoffset={circumference / 2}
-            transform={`rotate(180 ${radius + strokeWidth / 2} ${radius + strokeWidth / 2})`}
+            transform={`rotate(180 ${gaugeSize / 2} ${gaugeSize / 2})`}
           />
           <Circle
-            cx={radius + strokeWidth / 2}
-            cy={radius + strokeWidth / 2}
+            cx={gaugeSize / 2}
+            cy={gaugeSize / 2}
             r={radius}
             stroke="url(#performanceGradient)"
             strokeWidth={strokeWidth}
@@ -280,7 +282,7 @@ function PerformanceGauge({ index }: { index: number }) {
             strokeDasharray={`${circumference} ${circumference}`}
             strokeDashoffset={strokeDashoffset}
             strokeLinecap="round"
-            transform={`rotate(180 ${radius + strokeWidth / 2} ${radius + strokeWidth / 2})`}
+            transform={`rotate(180 ${gaugeSize / 2} ${gaugeSize / 2})`}
           />
         </Svg>
         <View style={styles.gaugeValueContainer}>

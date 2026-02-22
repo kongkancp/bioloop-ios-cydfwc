@@ -4,6 +4,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getAgeGapColor as getAgeGapColorUtil, getAgeGapEmoji } from '@/utils/bioAge';
 import { getAgeGapColor } from '@/constants/Colors';
+import { Typography } from '@/constants/Typography';
 
 interface BioAgeHeroCardProps {
   bioAge: number;
@@ -75,8 +76,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   label: {
-    fontSize: 20,
-    fontWeight: '600',
+    ...Typography.sectionTitle,
     color: 'rgba(255, 255, 255, 0.95)',
     marginBottom: 24,
   },
@@ -86,8 +86,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   ageValue: {
-    fontSize: 72,
-    fontWeight: 'bold',
+    ...Typography.heroNumber,
     color: '#FFFFFF',
     letterSpacing: -2,
   },
@@ -112,8 +111,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   chronologicalText: {
-    fontSize: 15,
-    fontWeight: '400',
+    ...Typography.body,
     color: 'rgba(255, 255, 255, 0.75)',
   },
 });

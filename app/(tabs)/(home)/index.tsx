@@ -22,6 +22,7 @@ import { getScoreColor } from '@/utils/scoreColor';
 import { IconSymbol } from '@/components/IconSymbol';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
+import { Typography } from '@/constants/Typography';
 
 const styles = StyleSheet.create({
   container: {
@@ -49,8 +50,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   date: {
-    fontSize: 14,
-    color: colors.secondaryText,
+    ...Typography.caption,
     marginTop: 4,
   },
   syncButton: {
@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   readinessLabel: {
-    fontSize: 15,
+    ...Typography.body,
     color: colors.secondaryText,
     marginBottom: 16,
   },
@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   readinessMessage: {
-    fontSize: 15,
+    ...Typography.body,
     color: colors.secondaryText,
     textAlign: 'center',
   },
@@ -113,8 +113,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   metricTitle: {
-    fontSize: 13,
-    color: colors.secondaryText,
+    ...Typography.caption,
     flex: 1,
   },
   metricValue: {
@@ -124,8 +123,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   metricSubtext: {
-    fontSize: 13,
-    color: colors.secondaryText,
+    ...Typography.caption,
   },
   actionsCard: {
     backgroundColor: colors.cardBackground,
@@ -152,8 +150,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   actionText: {
-    fontSize: 15,
-    color: colors.text,
+    ...Typography.body,
     flex: 1,
   },
   actionChevron: {
@@ -167,7 +164,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   debugButtonText: {
-    fontSize: 15,
+    ...Typography.body,
     fontWeight: '600',
     color: colors.primary,
   },
@@ -316,6 +313,12 @@ export default function HomeScreen() {
   const greetingText = getGreeting();
   const dateText = formatDate(new Date());
 
+  // Gauge specs: size=100, lineWidth=10
+  const gaugeSize = 100;
+  const gaugeLineWidth = 10;
+  const gaugeRadius = (gaugeSize - gaugeLineWidth) / 2;
+  const gaugeCircumference = 2 * Math.PI * gaugeRadius;
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
@@ -349,7 +352,7 @@ export default function HomeScreen() {
           <Text style={styles.readinessLabel}>Today's Readiness</Text>
           
           <View style={styles.gaugeContainer}>
-            <Svg width={200} height={200}>
+            <Svg width={gaugeSize} height={gaugeSize}>
               <Defs>
                 <LinearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
                   <Stop offset="0%" stopColor={gradientStart} />
@@ -357,24 +360,24 @@ export default function HomeScreen() {
                 </LinearGradient>
               </Defs>
               <Circle
-                cx={100}
-                cy={100}
-                r={80}
+                cx={gaugeSize / 2}
+                cy={gaugeSize / 2}
+                r={gaugeRadius}
                 stroke={colors.cardBackground}
-                strokeWidth={16}
+                strokeWidth={gaugeLineWidth}
                 fill="none"
               />
               <Circle
-                cx={100}
-                cy={100}
-                r={80}
+                cx={gaugeSize / 2}
+                cy={gaugeSize / 2}
+                r={gaugeRadius}
                 stroke="url(#gaugeGradient)"
-                strokeWidth={16}
+                strokeWidth={gaugeLineWidth}
                 fill="none"
-                strokeDasharray={`${(readinessScore / 100) * 502.4} 502.4`}
+                strokeDasharray={`${(readinessScore / 100) * gaugeCircumference} ${gaugeCircumference}`}
                 strokeLinecap="round"
                 rotation="-90"
-                origin="100, 100"
+                origin={`${gaugeSize / 2}, ${gaugeSize / 2}`}
               />
             </Svg>
           </View>

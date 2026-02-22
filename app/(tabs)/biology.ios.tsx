@@ -22,6 +22,9 @@ import { Stack, useRouter } from 'expo-router';
 import { colors } from '@/styles/commonStyles';
 import InsufficientDataBanner from '@/components/InsufficientDataBanner';
 import { IconSymbol } from '@/components/IconSymbol';
+import { Typography } from '@/constants/Typography';
+import { Colors } from '@/constants/Colors';
+import Svg, { Circle } from 'react-native-svg';
 
 // Helper function to get age group norms
 function getAgeGroupNorms(age: number) {
@@ -103,9 +106,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   cardTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
+    ...Typography.sectionTitle,
     marginBottom: 16,
   },
   contributorRow: {
@@ -125,9 +126,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contributorName: {
-    fontSize: 15,
+    ...Typography.body,
     fontWeight: '500',
-    color: colors.text,
     marginBottom: 4,
   },
   contributorBar: {
@@ -159,18 +159,29 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   scoreTitle: {
-    fontSize: 16,
+    ...Typography.cardTitle,
     color: colors.textSecondary,
-    marginBottom: 8,
+    marginBottom: 16,
+  },
+  scoreGaugeContainer: {
+    position: 'relative',
+    marginBottom: 16,
+  },
+  scoreGaugeValue: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scoreValue: {
-    fontSize: 48,
+    fontSize: 32,
     fontWeight: 'bold',
-    marginBottom: 8,
   },
   scoreSubtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
+    ...Typography.caption,
   },
   detailButton: {
     backgroundColor: colors.primary,
@@ -189,10 +200,10 @@ const styles = StyleSheet.create({
 // Longevity Score Card Component
 function LongevityScoreCard({ score }: { score: number }) {
   const scoreColor = useMemo(() => {
-    if (score >= 80) return '#10B981';
-    if (score >= 65) return '#3B82F6';
-    if (score >= 50) return '#F59E0B';
-    return '#EF4444';
+    if (score >= 80) return Colors.accentGreen;
+    if (score >= 65) return Colors.accentBlue;
+    if (score >= 50) return Colors.accentOrange;
+    return Colors.accentRed;
   }, [score]);
 
   const scoreLabel = useMemo(() => {
@@ -202,12 +213,49 @@ function LongevityScoreCard({ score }: { score: number }) {
     return 'Needs Attention';
   }, [score]);
 
+  const scoreRounded = Math.round(score);
+
+  // Standardized gauge: size=72, lineWidth=8
+  const gaugeSize = 72;
+  const lineWidth = 8;
+  const radius = (gaugeSize - lineWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const progress = (score / 100) * circumference;
+
   return (
     <View style={styles.scoreCard}>
       <Text style={styles.scoreTitle}>Longevity Score</Text>
-      <Text style={[styles.scoreValue, { color: scoreColor }]}>
-        {Math.round(score)}
-      </Text>
+      
+      <View style={styles.scoreGaugeContainer}>
+        <Svg width={gaugeSize} height={gaugeSize}>
+          <Circle
+            cx={gaugeSize / 2}
+            cy={gaugeSize / 2}
+            r={radius}
+            stroke={Colors.borderSubtle}
+            strokeWidth={lineWidth}
+            fill="none"
+          />
+          <Circle
+            cx={gaugeSize / 2}
+            cy={gaugeSize / 2}
+            r={radius}
+            stroke={scoreColor}
+            strokeWidth={lineWidth}
+            fill="none"
+            strokeDasharray={`${progress} ${circumference}`}
+            strokeLinecap="round"
+            rotation="-90"
+            origin={`${gaugeSize / 2}, ${gaugeSize / 2}`}
+          />
+        </Svg>
+        <View style={styles.scoreGaugeValue}>
+          <Text style={[styles.scoreValue, { color: scoreColor }]}>
+            {scoreRounded}
+          </Text>
+        </View>
+      </View>
+      
       <Text style={styles.scoreSubtitle}>{scoreLabel}</Text>
     </View>
   );
