@@ -1,4 +1,6 @@
 
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors } from '@/styles/commonStyles';
 import React, { useState } from 'react';
 import {
   View,
@@ -12,297 +14,23 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { IconSymbol } from '@/components/IconSymbol';
-import { colors } from '@/styles/commonStyles';
-import { useSubscription } from '@/hooks/useSubscription';
 import { SubscriptionProduct } from '@/types/subscription';
+import { IconSymbol } from '@/components/IconSymbol';
+import { useSubscription } from '@/hooks/useSubscription';
+import { Stack, useRouter } from 'expo-router';
 import DataManager from '@/services/DataManager';
-
-export default function ProfileScreen() {
-  const router = useRouter();
-  const { isPremium, isLoading: subscriptionLoading } = useSubscription();
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  const handleEditProfile = () => {
-    console.log('ProfileScreen: Navigating to edit profile');
-    router.push('/edit-profile');
-  };
-
-  const handleUpgradeToPremium = () => {
-    console.log('ProfileScreen: Navigating to subscription');
-    router.push('/subscription');
-  };
-
-  const handleHealthKitPermissions = async () => {
-    console.log('ProfileScreen: Opening HealthKit permissions');
-    Alert.alert(
-      'HealthKit Permissions',
-      'To modify HealthKit permissions, go to:\nSettings > Health > Data Access & Devices > BioLoop',
-      [{ text: 'OK' }]
-    );
-  };
-
-  const handlePrivacyLink = () => {
-    console.log('ProfileScreen: Opening privacy policy');
-    Linking.openURL('https://example.com/privacy');
-  };
-
-  const handleTermsLink = () => {
-    console.log('ProfileScreen: Opening terms of service');
-    Linking.openURL('https://example.com/terms');
-  };
-
-  const handleDeleteAllData = () => {
-    console.log('ProfileScreen: Delete all data requested');
-    setShowDeleteModal(true);
-  };
-
-  const confirmDeleteAllData = async () => {
-    console.log('ProfileScreen: Confirming delete all data');
-    setIsDeleting(true);
-    
-    try {
-      await DataManager.deleteAllData();
-      console.log('ProfileScreen: All data deleted successfully');
-      setShowDeleteModal(false);
-      Alert.alert('Success', 'All data has been deleted', [{ text: 'OK' }]);
-    } catch (error) {
-      console.error('ProfileScreen: Error deleting data:', error);
-      Alert.alert('Error', 'Failed to delete data. Please try again.', [{ text: 'OK' }]);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  const cancelDeleteAllData = () => {
-    console.log('ProfileScreen: Delete cancelled');
-    setShowDeleteModal(false);
-  };
-
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <Stack.Screen
-        options={{
-          title: 'Profile',
-          headerShown: true,
-        }}
-      />
-
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {/* Subscription Status */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Subscription</Text>
-          <View style={styles.card}>
-            {subscriptionLoading ? (
-              <View style={styles.listItem}>
-                <ActivityIndicator size="small" color={colors.primary} />
-                <Text style={styles.listItemText}>Loading subscription status...</Text>
-              </View>
-            ) : isPremium ? (
-              <View style={styles.listItem}>
-                <IconSymbol
-                  ios_icon_name="checkmark.seal.fill"
-                  android_material_icon_name="verified"
-                  size={24}
-                  color={colors.primary}
-                />
-                <Text style={styles.listItemText}>Premium Active</Text>
-              </View>
-            ) : (
-              <TouchableOpacity style={styles.listItem} onPress={handleUpgradeToPremium}>
-                <IconSymbol
-                  ios_icon_name="star.fill"
-                  android_material_icon_name="star"
-                  size={24}
-                  color={colors.primary}
-                />
-                <Text style={styles.listItemText}>Upgrade to Premium</Text>
-                <IconSymbol
-                  ios_icon_name="chevron.right"
-                  android_material_icon_name="chevron-right"
-                  size={20}
-                  color={colors.textSecondary}
-                />
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-
-        {/* Profile Settings */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Profile</Text>
-          <View style={styles.card}>
-            <TouchableOpacity style={styles.listItem} onPress={handleEditProfile}>
-              <IconSymbol
-                ios_icon_name="person.circle"
-                android_material_icon_name="person"
-                size={24}
-                color={colors.text}
-              />
-              <Text style={styles.listItemText}>Edit Profile</Text>
-              <IconSymbol
-                ios_icon_name="chevron.right"
-                android_material_icon_name="chevron-right"
-                size={20}
-                color={colors.textSecondary}
-              />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Health Data */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Health Data</Text>
-          <View style={styles.card}>
-            <TouchableOpacity style={styles.listItem} onPress={handleHealthKitPermissions}>
-              <IconSymbol
-                ios_icon_name="heart.text.square"
-                android_material_icon_name="favorite"
-                size={24}
-                color={colors.text}
-              />
-              <Text style={styles.listItemText}>HealthKit Permissions</Text>
-              <IconSymbol
-                ios_icon_name="chevron.right"
-                android_material_icon_name="chevron-right"
-                size={20}
-                color={colors.textSecondary}
-              />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Legal */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Legal</Text>
-          <View style={styles.card}>
-            <TouchableOpacity style={styles.listItem} onPress={handlePrivacyLink}>
-              <IconSymbol
-                ios_icon_name="hand.raised"
-                android_material_icon_name="privacy-tip"
-                size={24}
-                color={colors.text}
-              />
-              <Text style={styles.listItemText}>Privacy Policy</Text>
-              <IconSymbol
-                ios_icon_name="arrow.up.right"
-                android_material_icon_name="open-in-new"
-                size={20}
-                color={colors.textSecondary}
-              />
-            </TouchableOpacity>
-
-            <View style={styles.divider} />
-
-            <TouchableOpacity style={styles.listItem} onPress={handleTermsLink}>
-              <IconSymbol
-                ios_icon_name="doc.text"
-                android_material_icon_name="description"
-                size={24}
-                color={colors.text}
-              />
-              <Text style={styles.listItemText}>Terms of Service</Text>
-              <IconSymbol
-                ios_icon_name="arrow.up.right"
-                android_material_icon_name="open-in-new"
-                size={20}
-                color={colors.textSecondary}
-              />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Danger Zone */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Danger Zone</Text>
-          <View style={styles.card}>
-            <TouchableOpacity style={styles.listItem} onPress={handleDeleteAllData}>
-              <IconSymbol
-                ios_icon_name="trash"
-                android_material_icon_name="delete"
-                size={24}
-                color={colors.error}
-              />
-              <Text style={[styles.listItemText, { color: colors.error }]}>Delete All Data</Text>
-              <IconSymbol
-                ios_icon_name="chevron.right"
-                android_material_icon_name="chevron-right"
-                size={20}
-                color={colors.error}
-              />
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.sectionFooter}>
-            This will permanently delete all your health data and cannot be undone
-          </Text>
-        </View>
-
-        {/* App Version */}
-        <View style={styles.versionContainer}>
-          <Text style={styles.versionText}>BioLoop v1.0.0</Text>
-        </View>
-      </ScrollView>
-
-      {/* Delete Confirmation Modal */}
-      <Modal
-        visible={showDeleteModal}
-        transparent
-        animationType="fade"
-        onRequestClose={cancelDeleteAllData}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Delete All Data?</Text>
-            <Text style={styles.modalMessage}>
-              This will permanently delete all your health data, metrics, and profile information. This action cannot be undone.
-            </Text>
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonCancel]}
-                onPress={cancelDeleteAllData}
-                disabled={isDeleting}
-              >
-                <Text style={styles.modalButtonTextCancel}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonDelete]}
-                onPress={confirmDeleteAllData}
-                disabled={isDeleting}
-              >
-                {isDeleting ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={styles.modalButtonTextDelete}>Delete</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    </SafeAreaView>
-  );
-}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-    paddingTop: Platform.OS === 'android' ? 48 : 0,
-  },
-  scrollView: {
-    flex: 1,
   },
   scrollContent: {
     paddingBottom: 40,
   },
   section: {
     marginTop: 24,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
   },
   sectionTitle: {
     fontSize: 13,
@@ -311,73 +39,126 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 8,
-    marginLeft: 4,
-  },
-  sectionFooter: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: 8,
-    marginLeft: 4,
-    lineHeight: 18,
   },
   card: {
     backgroundColor: colors.card,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  listItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    borderRadius: 16,
     padding: 16,
-    minHeight: 56,
+    marginBottom: 12,
   },
-  listItemText: {
-    flex: 1,
-    fontSize: 17,
-    color: colors.text,
-    marginLeft: 12,
+  subscriptionCard: {
+    backgroundColor: colors.primary,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 12,
   },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginLeft: 52,
+  subscriptionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 8,
   },
-  versionContainer: {
-    alignItems: 'center',
-    marginTop: 32,
+  subscriptionDesc: {
+    fontSize: 15,
+    color: '#FFFFFF',
+    opacity: 0.9,
     marginBottom: 16,
   },
-  versionText: {
+  upgradeButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  upgradeButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  premiumBadge: {
+    backgroundColor: '#FFD700',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+  },
+  premiumBadgeText: {
     fontSize: 13,
+    fontWeight: '700',
+    color: '#000000',
+  },
+  premiumTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  premiumDesc: {
+    fontSize: 15,
     color: colors.textSecondary,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  menuItemContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  menuItemTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  menuItemSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  deleteButton: {
+    backgroundColor: '#FF3B30',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  deleteButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
   },
   modalContent: {
     backgroundColor: colors.card,
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 24,
-    width: '100%',
+    width: '85%',
     maxWidth: 400,
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: 'bold',
     color: colors.text,
     marginBottom: 12,
     textAlign: 'center',
   },
   modalMessage: {
-    fontSize: 15,
+    fontSize: 16,
     color: colors.textSecondary,
-    lineHeight: 22,
-    textAlign: 'center',
     marginBottom: 24,
+    textAlign: 'center',
+    lineHeight: 22,
   },
   modalButtons: {
     flexDirection: 'row',
@@ -388,23 +169,336 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
   },
   modalButtonCancel: {
     backgroundColor: colors.border,
   },
-  modalButtonDelete: {
-    backgroundColor: colors.error,
+  modalButtonConfirm: {
+    backgroundColor: '#FF3B30',
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   modalButtonTextCancel: {
-    fontSize: 17,
-    fontWeight: '600',
     color: colors.text,
   },
-  modalButtonTextDelete: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#fff',
+  modalButtonTextConfirm: {
+    color: '#FFFFFF',
   },
 });
+
+export default function ProfileScreen() {
+  const { isPremium, isLoading, products } = useSubscription();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const router = useRouter();
+
+  const handleEditProfile = () => {
+    console.log('User tapped Edit Profile');
+    router.push('/edit-profile');
+  };
+
+  const handleUpgradeToPremium = () => {
+    console.log('User tapped Upgrade to Premium');
+    router.push('/subscription');
+  };
+
+  const handleHealthKitPermissions = () => {
+    console.log('User tapped HealthKit Permissions');
+    if (Platform.OS === 'ios') {
+      Linking.openURL('app-settings:');
+    } else {
+      Alert.alert(
+        'HealthKit',
+        'HealthKit is only available on iOS devices.'
+      );
+    }
+  };
+
+  const handleMetricsGuide = () => {
+    console.log('User tapped Metrics Guide');
+    router.push('/metrics-glossary');
+  };
+
+  const handlePrivacyLink = () => {
+    console.log('User tapped Privacy Policy');
+    Linking.openURL('https://example.com/privacy');
+  };
+
+  const handleTermsLink = () => {
+    console.log('User tapped Terms of Service');
+    Linking.openURL('https://example.com/terms');
+  };
+
+  const handleDeleteAllData = () => {
+    console.log('User tapped Delete All Data');
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteAllData = async () => {
+    console.log('User confirmed Delete All Data');
+    setShowDeleteModal(false);
+    try {
+      await DataManager.deleteAllData();
+      Alert.alert(
+        'Success',
+        'All data has been deleted. Please restart the app.',
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      console.error('Error deleting data:', error);
+      Alert.alert('Error', 'Failed to delete data. Please try again.');
+    }
+  };
+
+  const cancelDeleteAllData = () => {
+    console.log('User cancelled Delete All Data');
+    setShowDeleteModal(false);
+  };
+
+  const loadingIndicator = isLoading;
+  const userIsPremium = isPremium;
+
+  return (
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Stack.Screen
+        options={{
+          title: 'Profile',
+          headerShown: true,
+          headerStyle: {
+            backgroundColor: colors.background,
+          },
+          headerTintColor: colors.text,
+          headerShadowVisible: false,
+        }}
+      />
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+      >
+        <View style={styles.section}>
+          {loadingIndicator ? (
+            <View style={styles.card}>
+              <ActivityIndicator size="small" color={colors.primary} />
+            </View>
+          ) : userIsPremium ? (
+            <View style={styles.card}>
+              <View style={styles.premiumBadge}>
+                <Text style={styles.premiumBadgeText}>PREMIUM</Text>
+              </View>
+              <Text style={styles.premiumTitle}>Premium Member</Text>
+              <Text style={styles.premiumDesc}>
+                You have access to all premium features
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.subscriptionCard}>
+              <Text style={styles.subscriptionTitle}>Upgrade to Premium</Text>
+              <Text style={styles.subscriptionDesc}>
+                Unlock advanced analytics, unlimited history, and more
+              </Text>
+              <TouchableOpacity
+                style={styles.upgradeButton}
+                onPress={handleUpgradeToPremium}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.upgradeButtonText}>View Plans</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Account</Text>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={handleEditProfile}
+            activeOpacity={0.7}
+          >
+            <IconSymbol
+              ios_icon_name="person.circle.fill"
+              android_material_icon_name="account-circle"
+              size={24}
+              color={colors.primary}
+            />
+            <View style={styles.menuItemContent}>
+              <Text style={styles.menuItemTitle}>Edit Profile</Text>
+              <Text style={styles.menuItemSubtitle}>
+                Update your personal information
+              </Text>
+            </View>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Health Data</Text>
+          {Platform.OS === 'ios' && (
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={handleHealthKitPermissions}
+              activeOpacity={0.7}
+            >
+              <IconSymbol
+                ios_icon_name="heart.text.square.fill"
+                android_material_icon_name="favorite"
+                size={24}
+                color={colors.primary}
+              />
+              <View style={styles.menuItemContent}>
+                <Text style={styles.menuItemTitle}>HealthKit Permissions</Text>
+                <Text style={styles.menuItemSubtitle}>
+                  Manage data access
+                </Text>
+              </View>
+              <IconSymbol
+                ios_icon_name="chevron.right"
+                android_material_icon_name="chevron-right"
+                size={20}
+                color={colors.textSecondary}
+              />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Help & Support</Text>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={handleMetricsGuide}
+            activeOpacity={0.7}
+          >
+            <IconSymbol
+              ios_icon_name="book.fill"
+              android_material_icon_name="menu-book"
+              size={24}
+              color={colors.primary}
+            />
+            <View style={styles.menuItemContent}>
+              <Text style={styles.menuItemTitle}>Metrics Guide</Text>
+              <Text style={styles.menuItemSubtitle}>
+                Learn about all health metrics
+              </Text>
+            </View>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Legal</Text>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={handlePrivacyLink}
+            activeOpacity={0.7}
+          >
+            <IconSymbol
+              ios_icon_name="lock.shield.fill"
+              android_material_icon_name="privacy-tip"
+              size={24}
+              color={colors.primary}
+            />
+            <View style={styles.menuItemContent}>
+              <Text style={styles.menuItemTitle}>Privacy Policy</Text>
+            </View>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={handleTermsLink}
+            activeOpacity={0.7}
+          >
+            <IconSymbol
+              ios_icon_name="doc.text.fill"
+              android_material_icon_name="description"
+              size={24}
+              color={colors.primary}
+            />
+            <View style={styles.menuItemContent}>
+              <Text style={styles.menuItemTitle}>Terms of Service</Text>
+            </View>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Danger Zone</Text>
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={handleDeleteAllData}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.deleteButtonText}>Delete All Data</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+
+      <Modal
+        visible={showDeleteModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={cancelDeleteAllData}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Delete All Data?</Text>
+            <Text style={styles.modalMessage}>
+              This will permanently delete all your health data, metrics, and
+              settings. This action cannot be undone.
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={cancelDeleteAllData}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.modalButtonText,
+                    styles.modalButtonTextCancel,
+                  ]}
+                >
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonConfirm]}
+                onPress={confirmDeleteAllData}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.modalButtonText,
+                    styles.modalButtonTextConfirm,
+                  ]}
+                >
+                  Delete
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
+  );
+}
