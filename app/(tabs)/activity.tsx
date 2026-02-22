@@ -1,4 +1,14 @@
 
+import { Stack, useRouter } from 'expo-router';
+import { 
+  getRecoveryEfficiencyInterpretation, 
+  getRecoveryEfficiencyColor,
+  getRecoveryEfficiencyMessage 
+} from '@/utils/recoveryEfficiency';
+import React, { useState } from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors } from '@/styles/commonStyles';
+import { useDailySync } from '@/hooks/useDailySync';
 import {
   View,
   Text,
@@ -8,371 +18,38 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
-import { colors } from '@/styles/commonStyles';
-import { IconSymbol } from '@/components/IconSymbol';
-import React, { useState } from 'react';
-import { Stack } from 'expo-router';
-import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useDailySync } from '@/hooks/useDailySync';
-import { getLoadInterpretation, getLoadColor } from '@/utils/loadScore';
 import { getACWRInterpretation, getACWRColor } from '@/utils/acwr';
-import { 
-  getRecoveryEfficiencyInterpretation, 
-  getRecoveryEfficiencyColor,
-  getRecoveryEfficiencyMessage 
-} from '@/utils/recoveryEfficiency';
+import { getLoadInterpretation, getLoadColor } from '@/utils/loadScore';
 import { getPerformanceLevel, getPerformanceMessage } from '@/utils/performanceIndex';
-
-export default function ActivityScreen() {
-  const { metrics, baselines, loading } = useDailySync();
-  const [selectedPeriod, setSelectedPeriod] = useState<'day' | 'week' | 'month'>('day');
-
-  const performanceIndex = metrics?.performanceIndex || 0;
-  const performanceLevel = getPerformanceLevel(performanceIndex);
-  const performanceMessage = getPerformanceMessage(performanceIndex);
-  const performanceLevelText = performanceLevel.level;
-  const performanceLevelColor = performanceLevel.color;
-
-  const loadScore = metrics?.loadScore || 0;
-  const loadInterpretation = getLoadInterpretation(loadScore);
-  const loadColorValue = getLoadColor(loadScore);
-
-  const acwr = metrics?.acwr;
-  const acwrScore = metrics?.acwrScore;
-  const hasACWR = acwr !== undefined && acwrScore !== undefined;
-  const acwrInterpretation = hasACWR ? getACWRInterpretation(acwr!, acwrScore!) : null;
-  const acwrColorValue = hasACWR ? getACWRColor(acwrScore!) : colors.textSecondary;
-
-  const recoveryEfficiency = metrics?.recoveryEfficiency;
-  const hasRecoveryEfficiency = recoveryEfficiency !== undefined;
-  const recoveryInterpretation = hasRecoveryEfficiency ? getRecoveryEfficiencyInterpretation(recoveryEfficiency!) : '';
-  const recoveryColorValue = hasRecoveryEfficiency ? getRecoveryEfficiencyColor(recoveryEfficiency!) : colors.textSecondary;
-  const recoveryMessage = hasRecoveryEfficiency ? getRecoveryEfficiencyMessage(recoveryEfficiency!) : '';
-
-  const performanceIndexDisplay = Math.round(performanceIndex).toString();
-  const loadScoreDisplay = Math.round(loadScore).toString();
-  const acwrDisplay = hasACWR ? acwr!.toFixed(2) : '--';
-  const acwrScoreDisplay = hasACWR ? Math.round(acwrScore!).toString() : '--';
-  const recoveryDisplay = hasRecoveryEfficiency ? Math.round(recoveryEfficiency!).toString() : '--';
-
-  const circumference = 2 * Math.PI * 110;
-  const strokeDashoffset = circumference - (performanceIndex / 100) * circumference;
-
-  const acwrPosition = hasACWR ? getACWRPosition(acwr!) : 0;
-
-  return (
-    <>
-      <Stack.Screen
-        options={{
-          title: 'Activity',
-          headerShown: false,
-        }}
-      />
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>Performance Lab</Text>
-            <Text style={styles.headerSubtitle}>Training metrics and analysis</Text>
-          </View>
-
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={colors.primary} />
-            </View>
-          ) : (
-            <>
-              <View style={styles.heroCard}>
-                <Text style={styles.heroTitle}>Performance Index</Text>
-                
-                <View style={styles.gaugeContainer}>
-                  <Svg width={240} height={240}>
-                    <Defs>
-                      <LinearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <Stop offset="0%" stopColor="#007AFF" />
-                        <Stop offset="100%" stopColor="#34C759" />
-                      </LinearGradient>
-                    </Defs>
-                    <Circle
-                      cx={120}
-                      cy={120}
-                      r={110}
-                      stroke={colors.cardBackground}
-                      strokeWidth={20}
-                      fill="none"
-                    />
-                    <Circle
-                      cx={120}
-                      cy={120}
-                      r={110}
-                      stroke="url(#gradient)"
-                      strokeWidth={20}
-                      fill="none"
-                      strokeDasharray={circumference}
-                      strokeDashoffset={strokeDashoffset}
-                      strokeLinecap="round"
-                      rotation="-90"
-                      origin="120, 120"
-                    />
-                  </Svg>
-                  
-                  <View style={styles.gaugeCenter}>
-                    <Text style={styles.gaugeValue}>{performanceIndexDisplay}</Text>
-                    <Text style={styles.gaugeMax}>/ 100</Text>
-                  </View>
-                </View>
-
-                <Text style={[styles.performanceLevel, { color: performanceLevelColor }]}>
-                  {performanceLevelText}
-                </Text>
-              </View>
-
-              <View style={styles.card}>
-                <View style={styles.componentHeader}>
-                  <Text style={styles.componentName}>Load Score</Text>
-                  <Text style={[styles.componentScore, { color: loadColorValue }]}>
-                    {loadScoreDisplay}
-                  </Text>
-                  <Text style={styles.componentMax}> / 100</Text>
-                </View>
-                
-                <View style={styles.progressBarContainer}>
-                  <View style={styles.progressBarBackground} />
-                  <View 
-                    style={[
-                      styles.progressBarFill, 
-                      { 
-                        width: `${loadScore}%`,
-                        backgroundColor: loadColorValue 
-                      }
-                    ]} 
-                  />
-                </View>
-
-                <Text style={styles.componentDescription}>
-                  Measures training stress using heart rate intensity and duration
-                </Text>
-              </View>
-
-              {hasACWR && (
-                <View style={styles.card}>
-                  <View style={styles.componentHeader}>
-                    <Text style={styles.componentName}>ACWR Score</Text>
-                    <Text style={[styles.componentScore, { color: acwrColorValue }]}>
-                      {acwrScoreDisplay}
-                    </Text>
-                    <Text style={styles.componentMax}> / 100</Text>
-                  </View>
-                  
-                  <View style={styles.progressBarContainer}>
-                    <View style={styles.progressBarBackground} />
-                    <View 
-                      style={[
-                        styles.progressBarFill, 
-                        { 
-                          width: `${acwrScore}%`,
-                          backgroundColor: acwrColorValue 
-                        }
-                      ]} 
-                    />
-                  </View>
-
-                  <Text style={styles.componentDescription}>
-                    Training load balance - compares 7-day to 28-day average
-                  </Text>
-                </View>
-              )}
-
-              {hasRecoveryEfficiency && (
-                <View style={styles.card}>
-                  <View style={styles.componentHeader}>
-                    <Text style={styles.componentName}>Recovery Efficiency</Text>
-                    <Text style={[styles.componentScore, { color: recoveryColorValue }]}>
-                      {recoveryDisplay}
-                    </Text>
-                    <Text style={styles.componentMax}> / 100</Text>
-                  </View>
-                  
-                  <View style={styles.progressBarContainer}>
-                    <View style={styles.progressBarBackground} />
-                    <View 
-                      style={[
-                        styles.progressBarFill, 
-                        { 
-                          width: `${recoveryEfficiency}%`,
-                          backgroundColor: recoveryColorValue 
-                        }
-                      ]} 
-                    />
-                  </View>
-
-                  <Text style={styles.componentDescription}>
-                    Cardiovascular recovery combining HRR (70%) and HRV rebound (30%)
-                  </Text>
-                </View>
-              )}
-
-              {hasACWR && (
-                <View style={styles.card}>
-                  <Text style={styles.acwrTitle}>Injury Risk</Text>
-                  
-                  <View style={styles.acwrValueContainer}>
-                    <Text style={[styles.acwrValue, { color: acwrColorValue }]}>
-                      {acwrDisplay}
-                    </Text>
-                    <Text style={styles.acwrRatioLabel}>ratio</Text>
-                  </View>
-
-                  <Text style={[styles.acwrRiskLevel, { color: acwrColorValue }]}>
-                    {acwrInterpretation!.risk}
-                  </Text>
-
-                  <View style={styles.acwrGaugeContainer}>
-                    <View style={styles.acwrGaugeBackground} />
-                    <View style={styles.acwrGaugeOptimal} />
-                    <View 
-                      style={[
-                        styles.acwrGaugeIndicator, 
-                        { 
-                          left: `${acwrPosition}%`,
-                          backgroundColor: acwrColorValue 
-                        }
-                      ]} 
-                    />
-                  </View>
-
-                  <View style={styles.acwrLabels}>
-                    <Text style={styles.acwrLabelText}>0.0</Text>
-                    <Text style={styles.acwrLabelText}>1.0</Text>
-                    <Text style={styles.acwrLabelText}>2.0</Text>
-                  </View>
-                </View>
-              )}
-
-              {!hasACWR && (
-                <View style={styles.card}>
-                  <View style={styles.insufficientDataContainer}>
-                    <IconSymbol
-                      ios_icon_name="calendar"
-                      android_material_icon_name="calendar-today"
-                      size={48}
-                      color={colors.textSecondary}
-                    />
-                    <Text style={styles.insufficientDataTitle}>Building Your Profile</Text>
-                    <Text style={styles.insufficientDataText}>
-                      ACWR and Injury Risk require 21+ days of training data. Keep syncing your workouts to unlock these metrics.
-                    </Text>
-                  </View>
-                </View>
-              )}
-
-              {!hasRecoveryEfficiency && (
-                <View style={styles.card}>
-                  <View style={styles.insufficientDataContainer}>
-                    <IconSymbol
-                      ios_icon_name="heart"
-                      android_material_icon_name="favorite-border"
-                      size={48}
-                      color={colors.textSecondary}
-                    />
-                    <Text style={styles.insufficientDataTitle}>Building Recovery Profile</Text>
-                    <Text style={styles.insufficientDataText}>
-                      Recovery Efficiency requires workout data with post-exercise heart rate and HRV history. Keep syncing to unlock this metric.
-                    </Text>
-                  </View>
-                </View>
-              )}
-            </>
-          )}
-        </ScrollView>
-      </SafeAreaView>
-    </>
-  );
-}
-
-function getACWRPosition(acwr: number): number {
-  const normalized = Math.min(Math.max(acwr, 0), 2) / 2.0;
-  return normalized * 100;
-}
+import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
+import { IconSymbol } from '@/components/IconSymbol';
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  scrollView: {
-    flex: 1,
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 100,
   },
   header: {
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'android' ? 48 : 20,
-    paddingBottom: 20,
+    marginBottom: 24,
   },
-  headerTitle: {
+  title: {
     fontSize: 34,
     fontWeight: 'bold',
     color: colors.text,
-    marginBottom: 4,
+    marginBottom: 8,
   },
-  headerSubtitle: {
+  subtitle: {
     fontSize: 17,
-    color: colors.textSecondary,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-  heroCard: {
-    backgroundColor: colors.cardBackground,
-    borderRadius: 16,
-    padding: 20,
-    marginHorizontal: 20,
-    marginBottom: 16,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  heroTitle: {
-    fontSize: 22,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 20,
-  },
-  gaugeContainer: {
-    width: 240,
-    height: 240,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  gaugeCenter: {
-    position: 'absolute',
-    alignItems: 'center',
-  },
-  gaugeValue: {
-    fontSize: 64,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  gaugeMax: {
-    fontSize: 20,
-    color: colors.textSecondary,
-    marginTop: -8,
-  },
-  performanceLevel: {
-    fontSize: 20,
-    fontWeight: '600',
+    color: colors.secondaryText,
   },
   card: {
     backgroundColor: colors.cardBackground,
     borderRadius: 16,
     padding: 20,
-    marginHorizontal: 20,
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -380,125 +57,306 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
-  componentHeader: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginBottom: 12,
-  },
-  componentName: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: colors.text,
-    flex: 1,
-  },
-  componentScore: {
-    fontSize: 15,
-    fontWeight: 'bold',
-  },
-  componentMax: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: colors.textSecondary,
-  },
-  progressBarContainer: {
-    height: 8,
-    marginBottom: 12,
-    position: 'relative',
-  },
-  progressBarBackground: {
-    position: 'absolute',
-    width: '100%',
-    height: 8,
-    backgroundColor: colors.background,
-    borderRadius: 4,
-  },
-  progressBarFill: {
-    position: 'absolute',
-    height: 8,
-    borderRadius: 4,
-  },
-  componentDescription: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    lineHeight: 18,
-  },
-  acwrTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 12,
-  },
-  acwrValueContainer: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginBottom: 8,
-  },
-  acwrValue: {
-    fontSize: 40,
-    fontWeight: 'bold',
-  },
-  acwrRatioLabel: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginLeft: 8,
-  },
-  acwrRiskLevel: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 16,
-  },
-  acwrGaugeContainer: {
-    height: 8,
-    position: 'relative',
-    marginBottom: 8,
-  },
-  acwrGaugeBackground: {
-    position: 'absolute',
-    width: '100%',
-    height: 8,
-    backgroundColor: colors.background,
-    borderRadius: 4,
-  },
-  acwrGaugeOptimal: {
-    position: 'absolute',
-    width: '25%',
-    height: 8,
-    backgroundColor: 'rgba(52, 199, 89, 0.3)',
-    borderRadius: 4,
-    left: '40%',
-  },
-  acwrGaugeIndicator: {
-    position: 'absolute',
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    top: -4,
-    marginLeft: -8,
-  },
-  acwrLabels: {
+  cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  acwrLabelText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  insufficientDataContainer: {
     alignItems: 'center',
-    paddingVertical: 32,
+    marginBottom: 16,
   },
-  insufficientDataTitle: {
+  cardTitle: {
     fontSize: 17,
     fontWeight: '600',
     color: colors.text,
-    marginTop: 16,
-    marginBottom: 8,
   },
-  insufficientDataText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    paddingHorizontal: 20,
-    lineHeight: 20,
+  chevron: {
+    opacity: 0.5,
+  },
+  metricRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  metricLabel: {
+    fontSize: 15,
+    color: colors.secondaryText,
+    flex: 1,
+  },
+  metricValue: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+    marginTop: 8,
+  },
+  statusText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  gaugeContainer: {
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  gaugeValue: {
+    position: 'absolute',
+    top: 70,
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: colors.text,
+  },
+  gaugeLabel: {
+    fontSize: 13,
+    color: colors.secondaryText,
+    marginTop: 8,
+  },
+  acwrZone: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  zoneLabel: {
+    fontSize: 13,
+    color: colors.secondaryText,
+  },
+  zoneValue: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 15,
+    color: colors.secondaryText,
   },
 });
+
+function getACWRPosition(acwr: number): number {
+  const min = 0.5;
+  const max = 2.0;
+  const clamped = Math.max(min, Math.min(max, acwr));
+  return ((clamped - min) / (max - min)) * 180;
+}
+
+export default function ActivityScreen() {
+  const { metrics, loading } = useDailySync();
+  const router = useRouter();
+  const [refreshing, setRefreshing] = useState(false);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <Stack.Screen
+          options={{
+            title: 'Activity',
+            headerShown: false,
+          }}
+        />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Loading activity data...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const performanceIndex = metrics?.performanceIndex ?? 0;
+  const loadScore = metrics?.loadScore ?? 0;
+  const acwr = metrics?.acwr ?? 1.0;
+  const acwrScore = metrics?.acwrScore ?? 0;
+  const recoveryEfficiency = metrics?.recoveryEfficiency ?? 0;
+
+  const performanceLevel = getPerformanceLevel(performanceIndex);
+  const performanceMessage = getPerformanceMessage(performanceIndex);
+  const loadInterpretation = getLoadInterpretation(loadScore);
+  const loadColor = getLoadColor(loadScore);
+  const acwrInterpretation = getACWRInterpretation(acwr);
+  const acwrColor = getACWRColor(acwr);
+  const recoveryInterpretation = getRecoveryEfficiencyInterpretation(recoveryEfficiency);
+  const recoveryColor = getRecoveryEfficiencyColor(recoveryEfficiency);
+  const recoveryMessage = getRecoveryEfficiencyMessage(recoveryEfficiency);
+
+  const acwrAngle = getACWRPosition(acwr);
+  const radius = 60;
+  const strokeWidth = 12;
+  const circumference = Math.PI * radius;
+  const acwrProgress = (acwrAngle / 180) * circumference;
+
+  const performanceIndexRounded = Math.round(performanceIndex);
+  const loadScoreRounded = Math.round(loadScore);
+  const acwrFormatted = acwr.toFixed(2);
+  const acwrScoreRounded = Math.round(acwrScore);
+  const recoveryEfficiencyRounded = Math.round(recoveryEfficiency);
+
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <Stack.Screen
+        options={{
+          title: 'Activity',
+          headerShown: false,
+        }}
+      />
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <Text style={styles.title}>Activity</Text>
+          <Text style={styles.subtitle}>Your training metrics</Text>
+        </View>
+
+        <TouchableOpacity
+          style={styles.card}
+          activeOpacity={0.7}
+          onPress={() => {
+            console.log('Navigating to Performance Index detail');
+          }}
+        >
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>Performance Index</Text>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={colors.secondaryText}
+              style={styles.chevron}
+            />
+          </View>
+          <View style={styles.metricRow}>
+            <Text style={styles.metricLabel}>Current Score</Text>
+            <Text style={styles.metricValue}>{performanceIndexRounded}</Text>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: `${colors.primary}20` }]}>
+            <Text style={[styles.statusText, { color: colors.primary }]}>
+              {performanceLevel}
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.card}
+          activeOpacity={0.7}
+          onPress={() => {
+            console.log('Navigating to Strain detail');
+            router.push('/strain-detail');
+          }}
+        >
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>Training Strain</Text>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={colors.secondaryText}
+              style={styles.chevron}
+            />
+          </View>
+          <View style={styles.metricRow}>
+            <Text style={styles.metricLabel}>Load Score</Text>
+            <Text style={[styles.metricValue, { color: loadColor }]}>
+              {loadScoreRounded}
+            </Text>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: `${loadColor}20` }]}>
+            <Text style={[styles.statusText, { color: loadColor }]}>
+              {loadInterpretation}
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.card}
+          activeOpacity={0.7}
+          onPress={() => {
+            console.log('Navigating to Recovery detail');
+            router.push('/recovery-detail');
+          }}
+        >
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>Recovery</Text>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={colors.secondaryText}
+              style={styles.chevron}
+            />
+          </View>
+          <View style={styles.metricRow}>
+            <Text style={styles.metricLabel}>Recovery Efficiency</Text>
+            <Text style={[styles.metricValue, { color: recoveryColor }]}>
+              {recoveryEfficiencyRounded}%
+            </Text>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: `${recoveryColor}20` }]}>
+            <Text style={[styles.statusText, { color: recoveryColor }]}>
+              {recoveryInterpretation}
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>Acute:Chronic Workload Ratio</Text>
+          </View>
+          <View style={styles.gaugeContainer}>
+            <Svg width={radius * 2 + strokeWidth} height={radius + strokeWidth + 10}>
+              <Defs>
+                <LinearGradient id="acwrGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <Stop offset="0%" stopColor="#FF3B30" />
+                  <Stop offset="33%" stopColor="#FF9500" />
+                  <Stop offset="50%" stopColor="#34C759" />
+                  <Stop offset="67%" stopColor="#FF9500" />
+                  <Stop offset="100%" stopColor="#FF3B30" />
+                </LinearGradient>
+              </Defs>
+              <Circle
+                cx={radius + strokeWidth / 2}
+                cy={radius + strokeWidth / 2}
+                r={radius}
+                stroke={colors.border}
+                strokeWidth={strokeWidth}
+                fill="none"
+                strokeDasharray={`${circumference} ${circumference}`}
+                strokeDashoffset={0}
+                transform={`rotate(180 ${radius + strokeWidth / 2} ${radius + strokeWidth / 2})`}
+              />
+              <Circle
+                cx={radius + strokeWidth / 2}
+                cy={radius + strokeWidth / 2}
+                r={radius}
+                stroke="url(#acwrGradient)"
+                strokeWidth={strokeWidth}
+                fill="none"
+                strokeDasharray={`${circumference} ${circumference}`}
+                strokeDashoffset={circumference - acwrProgress}
+                strokeLinecap="round"
+                transform={`rotate(180 ${radius + strokeWidth / 2} ${radius + strokeWidth / 2})`}
+              />
+            </Svg>
+            <Text style={styles.gaugeValue}>{acwrFormatted}</Text>
+          </View>
+          <Text style={styles.gaugeLabel}>Optimal range: 0.8 - 1.3</Text>
+          <View style={styles.acwrZone}>
+            <Text style={styles.zoneLabel}>Injury Risk</Text>
+            <Text style={[styles.zoneValue, { color: acwrColor }]}>
+              {acwrInterpretation}
+            </Text>
+          </View>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
