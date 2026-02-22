@@ -244,36 +244,33 @@ export function getAgeGapMessage(ageGap: number): string {
 }
 
 /**
- * Calculate BioAge with user profile integration
- * This is the main function that orchestrates the entire BioAge calculation
+ * Calculate BioAge with user profile integration (simplified signature for biology screen)
+ * This version takes metrics and chronological age directly
  */
-export async function calculateBioAgeWithProfile(
-  date: Date,
-  dateOfBirth: Date | undefined,
-  height: number | undefined,
+export function calculateBioAgeWithProfile(
   metrics: DailyMetrics,
-  baselines: Baselines,
+  chronologicalAge: number,
+  baselines?: Baselines,
+  height?: number,
   previousBioAgeData?: BioAgeData
-): Promise<BioAgeData | null> {
-  // Validate profile data
-  if (!dateOfBirth) {
-    console.error('❌ No date of birth found in profile');
-    return null;
-  }
-
-  // Calculate age
-  const age = calculateAge(dateOfBirth);
-  
+): BioAgeData | null {
   // Validate age range
-  if (!isValidAge(age)) {
-    console.error(`❌ Invalid age for BioAge calculation: ${age} (must be 18-100)`);
+  if (!isValidAge(chronologicalAge)) {
+    console.error(`❌ Invalid age for BioAge calculation: ${chronologicalAge} (must be 18-100)`);
     return null;
   }
 
-  console.log(`✓ Calculating BioAge for age ${age}`);
+  console.log(`✓ Calculating BioAge for age ${chronologicalAge}`);
+
+  // Use provided baselines or create default ones
+  const effectiveBaselines: Baselines = baselines || {
+    hrv: metrics.hrv || 50,
+    restingHR: metrics.restingHR || 60,
+    vo2max: metrics.vo2max || 40,
+  };
 
   // Calculate all component indices
-  const indices = calculateBioAgeIndices(metrics, baselines, height);
+  const indices = calculateBioAgeIndices(metrics, effectiveBaselines, height);
 
   // Check if we have minimum required data (3 of 5 components)
   const componentCount = [
@@ -294,18 +291,18 @@ export async function calculateBioAgeWithProfile(
   // Calculate age offset and impact
   const offset = calculateAgeOffset(indices);
   const ageImpact = calculateAgeImpact(offset);
-  const rawBioAge = age + ageImpact;
+  const rawBioAge = chronologicalAge + ageImpact;
 
   // Apply smoothing if we have previous data
   const smoothed = smoothBioAge(rawBioAge, previousBioAgeData?.bioAgeSmoothed);
 
   // Calculate longevity score
-  const longevityScore = calculateLongevityScore(smoothed, age);
+  const longevityScore = calculateLongevityScore(smoothed, chronologicalAge);
 
   // Create BioAge data object
   const data: BioAgeData = {
-    date,
-    chronologicalAge: age,
+    date: metrics.date,
+    chronologicalAge,
     indices,
     offset,
     ageImpact,
@@ -315,10 +312,35 @@ export async function calculateBioAgeWithProfile(
     computedAt: new Date(),
   };
 
-  const ageGap = age - smoothed;
+  const ageGap = chronologicalAge - smoothed;
   console.log(
     `✓ BioAge: ${smoothed.toFixed(1)} years (gap: ${ageGap >= 0 ? '+' : ''}${ageGap.toFixed(1)} years)`
   );
 
   return data;
+}
+
+/**
+ * Calculate BioAge with full profile data (for SyncManager)
+ * This is the original signature that takes all parameters separately
+ */
+export async function calculateBioAgeWithFullProfile(
+  date: Date,
+  dateOfBirth: Date | undefined,
+  height: number | undefined,
+  metrics: DailyMetrics,
+  baselines: Baselines,
+  previousBioAgeData?: BioAgeData
+): Promise<BioAgeData | null> {
+  // Validate profile data
+  if (!dateOfBirth) {
+    console.error('❌ No date of birth found in profile');
+    return null;
+  }
+
+  // Calculate age
+  const age = calculateAge(dateOfBirth);
+  
+  // Use the simplified function
+  return calculateBioAgeWithProfile(metrics, age, baselines, height, previousBioAgeData);
 }
