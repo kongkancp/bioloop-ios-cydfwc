@@ -402,7 +402,7 @@ export default function ProfileScreen() {
                 onPress={handleUpgradeToPremium}
                 activeOpacity={0.8}
               >
-                <Text style={styles.upgradeButtonText}>Subscribe - $1.99/month</Text>
+                <Text style={styles.upgradeButtonText}>Subscribe - $1.49/month</Text>
               </TouchableOpacity>
               
               <TouchableOpacity
