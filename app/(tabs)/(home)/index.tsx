@@ -20,7 +20,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import MockDataGenerator from '@/services/MockDataGenerator';
-import { Stack, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useDailySync } from '@/hooks/useDailySync';
 
 const styles = StyleSheet.create({
@@ -30,6 +30,30 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  headerLeft: {
+    flex: 1,
+  },
+  greeting: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: colors.text,
+  },
+  date: {
+    fontSize: 14,
+    color: colors.secondaryText,
+    marginTop: 4,
+  },
+  syncButton: {
+    padding: 8,
   },
   loadingContainer: {
     flex: 1,
@@ -241,15 +265,31 @@ export default function HomeScreen() {
     return `${hours}h ${mins}m`;
   };
 
+  const formatDate = (date: Date): string => {
+    const options: Intl.DateTimeFormatOptions = { 
+      weekday: 'long', 
+      month: 'long', 
+      day: 'numeric' 
+    };
+    return date.toLocaleDateString('en-US', options);
+  };
+
+  const getGreeting = (): string => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 18) return 'Good Afternoon';
+    return 'Good Evening';
+  };
+
   if (!metrics) {
     return (
       <SafeAreaView style={styles.container}>
-        <Stack.Screen
-          options={{
-            title: 'BioLoop',
-            headerShown: true,
-          }}
-        />
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <Text style={styles.greeting}>BioLoop</Text>
+            <Text style={styles.date}>Welcome</Text>
+          </View>
+        </View>
         <EmptyDataView
           icon="favorite"
           iosIcon="heart.fill"
@@ -272,15 +312,31 @@ export default function HomeScreen() {
   const hrvText = metrics.hrv ? Math.round(metrics.hrv).toString() : '--';
   const restingHRText = metrics.restingHR ? Math.round(metrics.restingHR).toString() : '--';
   const vo2maxText = metrics.vo2max ? Math.round(metrics.vo2max).toString() : '--';
+  const greetingText = getGreeting();
+  const dateText = formatDate(new Date());
 
   return (
     <SafeAreaView style={styles.container}>
-      <Stack.Screen
-        options={{
-          title: 'BioLoop',
-          headerShown: true,
-        }}
-      />
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <Text style={styles.greeting}>{greetingText}</Text>
+          <Text style={styles.date}>{dateText}</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.syncButton}
+          onPress={handleRefresh}
+          disabled={loading}
+          activeOpacity={0.7}
+        >
+          <IconSymbol
+            ios_icon_name="arrow.clockwise"
+            android_material_icon_name="refresh"
+            size={24}
+            color={colors.primary}
+          />
+        </TouchableOpacity>
+      </View>
+      
       <ScrollView
         style={styles.scrollContent}
         refreshControl={
