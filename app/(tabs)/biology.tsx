@@ -1,5 +1,11 @@
 
-import { useDailySync } from '@/hooks/useDailySync';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors } from '@/styles/commonStyles';
+import {
+  calculateBioAgeIndices,
+  hasMinimumData,
+  calculateRawBioAge,
+} from '@/utils/bioAge';
 import {
   View,
   Text,
@@ -9,19 +15,68 @@ import {
   ActivityIndicator,
   TouchableOpacity,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '@/styles/commonStyles';
-import { Stack, useRouter } from 'expo-router';
+import { calculateAge } from '@/utils/age';
+import { IconSymbol } from '@/components/IconSymbol';
+import BioAgeHeroCard from '@/components/BioAgeHeroCard';
 import React, { useMemo } from 'react';
 import InsufficientDataBanner from '@/components/InsufficientDataBanner';
-import BioAgeHeroCard from '@/components/BioAgeHeroCard';
-import { calculateAge } from '@/utils/age';
-import {
-  calculateBioAgeIndices,
-  hasMinimumData,
-  calculateRawBioAge,
-} from '@/utils/bioAge';
-import { IconSymbol } from '@/components/IconSymbol';
+import EmptyDataView from '@/components/EmptyDataView';
+import { Stack, useRouter } from 'expo-router';
+import { useDailySync } from '@/hooks/useDailySync';
+
+// Helper function to get age group norms
+function getAgeGroupNorms(age: number) {
+  if (age < 25) return { hrv: 70, restingHR: 60, vo2max: 48 };
+  if (age < 35) return { hrv: 65, restingHR: 62, vo2max: 45 };
+  if (age < 45) return { hrv: 60, restingHR: 65, vo2max: 42 };
+  if (age < 55) return { hrv: 50, restingHR: 68, vo2max: 38 };
+  if (age < 65) return { hrv: 45, restingHR: 70, vo2max: 35 };
+  return { hrv: 40, restingHR: 72, vo2max: 32 };
+}
+
+// Calculate BioAge indices from metrics
+function calculateBioAgeIndicesLocal(metrics: any, norms: any, height: number) {
+  const normalize = (val: number, exp: number) => {
+    const z = (val - exp) / exp;
+    return z / (1 + Math.abs(z));
+  };
+  
+  let autonomic = null;
+  if (metrics.hrv && metrics.restingHR) {
+    autonomic = (normalize(metrics.hrv, norms.hrv) * -0.6) + (normalize(metrics.restingHR, norms.restingHR) * 0.4);
+  }
+  
+  let vo2 = metrics.vo2max ? normalize(metrics.vo2max, norms.vo2max) * -1 : null;
+  const sleep = metrics.sleepDuration ? (7 - metrics.sleepDuration) * 0.15 : 0;
+  const workout = ((metrics.workouts?.length || 0) - 3) * -0.3;
+  
+  let bmi = 0;
+  if (metrics.bodyMass && height > 0) {
+    bmi = (metrics.bodyMass / ((height / 100) ** 2) - 23) / 5;
+  }
+  
+  return { autonomic, vo2, sleep, workout, bmi };
+}
+
+// Calculate age offset from indices
+function calculateAgeOffset(indices: any): number {
+  let offset = 0;
+  let weight = 0;
+  
+  if (indices.autonomic != null) { 
+    offset += indices.autonomic * 0.40; 
+    weight += 0.40; 
+  }
+  if (indices.vo2 != null) { 
+    offset += indices.vo2 * 0.25; 
+    weight += 0.25; 
+  }
+  
+  offset += (indices.sleep || 0) * 0.15 + (indices.workout || 0) * 0.10 + (indices.bmi || 0) * 0.10;
+  weight += 0.35;
+  
+  return weight > 0 ? offset / weight : 0;
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -29,176 +84,259 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   scrollContent: {
-    paddingBottom: 100,
-  },
-  header: {
-    padding: 20,
-    paddingBottom: 16,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: colors.textSecondary,
-  },
-  componentsCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 20,
-    marginHorizontal: 20,
-    marginBottom: 20,
-  },
-  componentsTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 16,
-  },
-  componentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  componentIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.backgroundAlt,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  componentInfo: {
-    flex: 1,
-  },
-  componentName: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  componentBar: {
-    height: 6,
-    backgroundColor: colors.backgroundAlt,
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  componentBarFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  componentValue: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.text,
-    marginLeft: 12,
-  },
-  infoCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 20,
-    marginHorizontal: 20,
-  },
-  infoTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 12,
-  },
-  infoText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    lineHeight: 20,
+    padding: 16,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: colors.textSecondary,
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  emptyContainer: {
-    flex: 1,
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 16,
+  },
+  contributorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  contributorIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
+    marginRight: 12,
   },
-  emptyText: {
+  contributorInfo: {
+    flex: 1,
+  },
+  contributorName: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  contributorBar: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.border,
+    overflow: 'hidden',
+  },
+  contributorFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  contributorValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginLeft: 8,
+  },
+  scoreCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  scoreTitle: {
     fontSize: 16,
     color: colors.textSecondary,
-    textAlign: 'center',
-    marginTop: 16,
+    marginBottom: 8,
+  },
+  scoreValue: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  scoreSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  detailButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  detailButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 
+// Longevity Score Card Component
+function LongevityScoreCard({ score }: { score: number }) {
+  const scoreColor = useMemo(() => {
+    if (score >= 80) return '#10B981';
+    if (score >= 65) return '#3B82F6';
+    if (score >= 50) return '#F59E0B';
+    return '#EF4444';
+  }, [score]);
+
+  const scoreLabel = useMemo(() => {
+    if (score >= 80) return 'Excellent';
+    if (score >= 65) return 'Good';
+    if (score >= 50) return 'Fair';
+    return 'Needs Attention';
+  }, [score]);
+
+  return (
+    <View style={styles.scoreCard}>
+      <Text style={styles.scoreTitle}>Longevity Score</Text>
+      <Text style={[styles.scoreValue, { color: scoreColor }]}>
+        {Math.round(score)}
+      </Text>
+      <Text style={styles.scoreSubtitle}>{scoreLabel}</Text>
+    </View>
+  );
+}
+
+// Contributors Card Component
+function ContributorsCard({ contributors }: { contributors: any[] }) {
+  const getContributorColor = (name: string) => {
+    switch (name) {
+      case 'Heart Health': return '#EF4444';
+      case 'Aerobic Fitness': return '#3B82F6';
+      case 'Sleep Quality': return '#8B5CF6';
+      case 'Exercise': return '#10B981';
+      case 'Body Comp': return '#F59E0B';
+      default: return colors.primary;
+    }
+  };
+
+  const getIconName = (name: string) => {
+    switch (name) {
+      case 'Heart Health': return 'favorite';
+      case 'Aerobic Fitness': return 'air';
+      case 'Sleep Quality': return 'bedtime';
+      case 'Exercise': return 'directions-run';
+      case 'Body Comp': return 'monitor-weight';
+      default: return 'info';
+    }
+  };
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>Contributing Factors</Text>
+      {contributors.map((contributor, index) => {
+        const contributorColor = getContributorColor(contributor.name);
+        const iconName = getIconName(contributor.name);
+        const percentage = Math.abs(contributor.value) * 10;
+        const displayValue = contributor.value > 0 ? '+' : '';
+        const valueText = `${displayValue}${contributor.value.toFixed(1)}`;
+
+        return (
+          <View key={index} style={styles.contributorRow}>
+            <View style={[styles.contributorIcon, { backgroundColor: contributorColor + '20' }]}>
+              <IconSymbol
+                ios_icon_name={contributor.icon}
+                android_material_icon_name={iconName}
+                size={20}
+                color={contributorColor}
+              />
+            </View>
+            <View style={styles.contributorInfo}>
+              <Text style={styles.contributorName}>{contributor.name}</Text>
+              <View style={styles.contributorBar}>
+                <View
+                  style={[
+                    styles.contributorFill,
+                    { 
+                      width: `${Math.min(100, percentage)}%`,
+                      backgroundColor: contributorColor 
+                    }
+                  ]}
+                />
+              </View>
+            </View>
+            <Text style={[styles.contributorValue, { color: contributorColor }]}>
+              {valueText}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 export default function BiologyScreen() {
-  const { metrics, baselines, loading, userProfile } = useDailySync();
   const router = useRouter();
+  const { metrics, baselines, userProfile, loading, syncNow } = useDailySync();
 
-  // Calculate BioAge components
   const bioAgeData = useMemo(() => {
-    if (!metrics || !baselines || !userProfile?.dateOfBirth) {
+    if (!metrics || !baselines) {
       return null;
     }
-
-    const chronologicalAge = calculateAge(userProfile.dateOfBirth);
-    const indices = calculateBioAgeIndices(metrics, baselines, userProfile.height);
-
-    if (!hasMinimumData(indices)) {
-      return null;
-    }
-
-    const bioAge = calculateRawBioAge(chronologicalAge, indices);
-    const ageGap = bioAge - chronologicalAge;
-
-    console.log(`BioAge calculation: Chronological=${chronologicalAge}, Bio=${bioAge.toFixed(1)}, Gap=${ageGap.toFixed(1)}`);
-
+    
+    const age = userProfile?.dateOfBirth ? calculateAge(userProfile.dateOfBirth) : 35;
+    if (age < 18 || age > 100) return null;
+    
+    const norms = getAgeGroupNorms(age);
+    const indices = calculateBioAgeIndicesLocal(metrics, norms, userProfile?.height || 170);
+    
+    // Build contributors array
+    const contributorsData = [
+      { name: "Heart Health", value: (indices.autonomic ?? 0) * -1.5, icon: "heart.fill", color: "red" },
+      { name: "Aerobic Fitness", value: (indices.vo2 ?? 0) * -1.2, icon: "wind", color: "blue" },
+      { name: "Sleep Quality", value: (indices.sleep ?? 0) * -0.8, icon: "moon.zzz.fill", color: "purple" },
+      { name: "Exercise", value: (indices.workout ?? 0) * -0.5, icon: "figure.run", color: "green" },
+      { name: "Body Comp", value: (indices.bmi ?? 0) * -0.5, icon: "scalemass.fill", color: "orange" }
+    ];
+    
+    const offset = calculateAgeOffset(indices);
+    const ageImpact = Math.max(-12, Math.min(12, offset * 8 * (1 - Math.exp(-Math.abs(offset) * 2))));
+    const rawBioAge = age + ageImpact;
+    
     return {
-      chronologicalAge,
-      bioAge,
-      ageGap,
+      chronologicalAge: age,
+      bioAge: rawBioAge,
+      bioAgeSmoothed: rawBioAge,
+      longevityScore: Math.max(0, Math.min(100, 100 - (Math.abs(rawBioAge - age) * 5))),
+      contributors: contributorsData,
       indices,
+      offset,
+      ageImpact
     };
   }, [metrics, baselines, userProfile]);
 
-  // Determine missing metrics for banner
-  const missingMetrics = useMemo(() => {
-    if (!bioAgeData) {
-      const missing: string[] = [];
-      if (!metrics?.hrv || !metrics?.restingHR) missing.push('HRV');
-      if (!metrics?.vo2max) missing.push('VO2 Max');
-      if (!metrics?.sleepDuration) missing.push('Sleep');
-      if (!metrics?.workouts || metrics.workouts.length === 0) missing.push('Workouts');
-      if (!userProfile?.height || !metrics?.bodyMass) missing.push('BMI');
-      return missing;
-    }
-    return [];
-  }, [bioAgeData, metrics, userProfile]);
+  const contributors = bioAgeData?.contributors || [];
 
-  const getPerformanceColor = (percentage: number): string => {
-    if (percentage >= 100) return '#10b981';
-    if (percentage >= 80) return '#84cc16';
-    if (percentage >= 60) return '#eab308';
-    return '#ef4444';
+  const getPerformanceColor = (percentage: number) => {
+    if (percentage >= 80) return '#10B981';
+    if (percentage >= 65) return '#3B82F6';
+    if (percentage >= 50) return '#F59E0B';
+    return '#EF4444';
   };
 
-  const formatDate = (date: Date): string => {
-    const options: Intl.DateTimeFormatOptions = {
-      weekday: 'long',
-      month: 'long',
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
       day: 'numeric',
-    };
-    return date.toLocaleDateString('en-US', options);
+      year: 'numeric'
+    });
   };
-
-  const todayFormatted = formatDate(new Date());
 
   if (loading) {
     return (
@@ -206,225 +344,51 @@ export default function BiologyScreen() {
         <Stack.Screen
           options={{
             title: 'Biology',
-            headerShown: false,
+            headerShown: true,
           }}
         />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading biological data...</Text>
         </View>
       </SafeAreaView>
     );
   }
-
-  if (!metrics || !baselines) {
-    return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <Stack.Screen
-          options={{
-            title: 'Biology',
-            headerShown: false,
-          }}
-        />
-        <View style={styles.emptyContainer}>
-          <IconSymbol
-            ios_icon_name="heart.text.square"
-            android_material_icon_name="favorite"
-            size={64}
-            color={colors.textSecondary}
-          />
-          <Text style={styles.emptyText}>
-            No health data available yet.{'\n'}Sync your HealthKit data to see your biological age.
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  const autonomicPercentage = bioAgeData?.indices.autonomic ?? 0;
-  const vo2Percentage = bioAgeData?.indices.vo2 ?? 0;
-  const sleepPercentage = bioAgeData?.indices.sleep ?? 0;
-  const workoutPercentage = bioAgeData?.indices.workout ?? 0;
-  const bmiPercentage = bioAgeData?.indices.bmi ?? 0;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <Stack.Screen
         options={{
           title: 'Biology',
-          headerShown: false,
+          headerShown: true,
         }}
       />
       <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Biological Age</Text>
-          <Text style={styles.subtitle}>{todayFormatted}</Text>
-        </View>
-
-        {missingMetrics.length > 0 && (
-          <InsufficientDataBanner missing={missingMetrics} />
-        )}
-
-        {bioAgeData && (
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => {
-              console.log('BiologyScreen: User tapped BioAge card, navigating to longevity-detail');
-              router.push('/longevity-detail');
-            }}
-          >
-            <BioAgeHeroCard
-              bioAge={bioAgeData.bioAge}
+        {bioAgeData ? (
+          <>
+            <BioAgeHeroCard 
+              bioAge={bioAgeData.bioAgeSmoothed}
               chronologicalAge={bioAgeData.chronologicalAge}
-              ageGap={bioAgeData.ageGap}
+              ageGap={bioAgeData.chronologicalAge - bioAgeData.bioAgeSmoothed}
             />
-          </TouchableOpacity>
+            <LongevityScoreCard score={bioAgeData.longevityScore} />
+            <ContributorsCard contributors={contributors} />
+            <TouchableOpacity
+              style={styles.detailButton}
+              onPress={() => router.push('/longevity-detail')}
+            >
+              <Text style={styles.detailButtonText}>View Detailed Analysis</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <EmptyDataView
+            icon="figure.walk"
+            iosIcon="figure.walk"
+            title="No BioAge Data"
+            message="Complete profile and sync HealthKit to see biological age"
+            actionTitle="Sync Now"
+            action={() => syncNow()}
+          />
         )}
-
-        <View style={styles.componentsCard}>
-          <Text style={styles.componentsTitle}>BioAge Components</Text>
-
-          <View style={styles.componentRow}>
-            <View style={styles.componentIcon}>
-              <IconSymbol
-                ios_icon_name="heart.fill"
-                android_material_icon_name="favorite"
-                size={20}
-                color={colors.primary}
-              />
-            </View>
-            <View style={styles.componentInfo}>
-              <Text style={styles.componentName}>Autonomic (HRV + HR)</Text>
-              <View style={styles.componentBar}>
-                <View
-                  style={[
-                    styles.componentBarFill,
-                    {
-                      width: `${Math.min(autonomicPercentage, 100)}%`,
-                      backgroundColor: getPerformanceColor(autonomicPercentage),
-                    },
-                  ]}
-                />
-              </View>
-            </View>
-            <Text style={styles.componentValue}>{Math.round(autonomicPercentage)}%</Text>
-          </View>
-
-          <View style={styles.componentRow}>
-            <View style={styles.componentIcon}>
-              <IconSymbol
-                ios_icon_name="figure.run"
-                android_material_icon_name="directions-run"
-                size={20}
-                color={colors.primary}
-              />
-            </View>
-            <View style={styles.componentInfo}>
-              <Text style={styles.componentName}>VO2 Max</Text>
-              <View style={styles.componentBar}>
-                <View
-                  style={[
-                    styles.componentBarFill,
-                    {
-                      width: `${Math.min(vo2Percentage, 100)}%`,
-                      backgroundColor: getPerformanceColor(vo2Percentage),
-                    },
-                  ]}
-                />
-              </View>
-            </View>
-            <Text style={styles.componentValue}>{Math.round(vo2Percentage)}%</Text>
-          </View>
-
-          <View style={styles.componentRow}>
-            <View style={styles.componentIcon}>
-              <IconSymbol
-                ios_icon_name="moon.fill"
-                android_material_icon_name="bedtime"
-                size={20}
-                color={colors.primary}
-              />
-            </View>
-            <View style={styles.componentInfo}>
-              <Text style={styles.componentName}>Sleep Quality</Text>
-              <View style={styles.componentBar}>
-                <View
-                  style={[
-                    styles.componentBarFill,
-                    {
-                      width: `${Math.min(sleepPercentage, 100)}%`,
-                      backgroundColor: getPerformanceColor(sleepPercentage),
-                    },
-                  ]}
-                />
-              </View>
-            </View>
-            <Text style={styles.componentValue}>{Math.round(sleepPercentage)}%</Text>
-          </View>
-
-          <View style={styles.componentRow}>
-            <View style={styles.componentIcon}>
-              <IconSymbol
-                ios_icon_name="figure.strengthtraining.traditional"
-                android_material_icon_name="fitness-center"
-                size={20}
-                color={colors.primary}
-              />
-            </View>
-            <View style={styles.componentInfo}>
-              <Text style={styles.componentName}>Workout Frequency</Text>
-              <View style={styles.componentBar}>
-                <View
-                  style={[
-                    styles.componentBarFill,
-                    {
-                      width: `${Math.min(workoutPercentage, 100)}%`,
-                      backgroundColor: getPerformanceColor(workoutPercentage),
-                    },
-                  ]}
-                />
-              </View>
-            </View>
-            <Text style={styles.componentValue}>{Math.round(workoutPercentage)}%</Text>
-          </View>
-
-          <View style={styles.componentRow}>
-            <View style={styles.componentIcon}>
-              <IconSymbol
-                ios_icon_name="scalemass.fill"
-                android_material_icon_name="monitor-weight"
-                size={20}
-                color={colors.primary}
-              />
-            </View>
-            <View style={styles.componentInfo}>
-              <Text style={styles.componentName}>Body Composition (BMI)</Text>
-              <View style={styles.componentBar}>
-                <View
-                  style={[
-                    styles.componentBarFill,
-                    {
-                      width: `${Math.min(bmiPercentage, 100)}%`,
-                      backgroundColor: getPerformanceColor(bmiPercentage),
-                    },
-                  ]}
-                />
-              </View>
-            </View>
-            <Text style={styles.componentValue}>{Math.round(bmiPercentage)}%</Text>
-          </View>
-        </View>
-
-        <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>About Biological Age</Text>
-          <Text style={styles.infoText}>
-            Your biological age reflects how well your body is functioning compared to your
-            chronological age. It&apos;s calculated from five key health components: autonomic function
-            (HRV + resting heart rate), cardiovascular fitness (VO2 max), sleep quality, workout
-            frequency, and body composition. A lower biological age indicates better overall health
-            and longevity potential.
-          </Text>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
