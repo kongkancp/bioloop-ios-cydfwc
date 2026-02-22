@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/styles/commonStyles';
 import { useDailySync } from '@/hooks/useDailySync';
@@ -101,48 +101,85 @@ const styles = StyleSheet.create({
     color: colors.text,
     lineHeight: 22,
   },
-  metricsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -8,
-  },
-  metricCard: {
-    width: '50%',
-    padding: 8,
-  },
-  metricCardInner: {
+  chartCard: {
     backgroundColor: colors.cardBackground,
     borderRadius: 16,
-    padding: 16,
+    padding: 20,
+    marginBottom: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
   },
-  metricHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  metricIcon: {
-    marginRight: 8,
-  },
-  metricTitle: {
-    fontSize: 15,
+  chartTitle: {
+    fontSize: 17,
     fontWeight: '600',
     color: colors.text,
-    flex: 1,
+    marginBottom: 16,
   },
-  metricValue: {
-    fontSize: 28,
-    fontWeight: 'bold',
+  chartContainer: {
+    height: 120,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+  },
+  barContainer: {
+    alignItems: 'center',
+    flex: 1,
+    marginHorizontal: 4,
+  },
+  bar: {
+    width: 40,
+    borderRadius: 4,
+    backgroundColor: '#007AFF',
+    marginBottom: 4,
+  },
+  barValue: {
+    fontSize: 11,
+    fontWeight: '600',
     color: colors.text,
     marginBottom: 4,
   },
-  metricLabel: {
+  barLabel: {
+    fontSize: 11,
+    color: colors.secondaryText,
+  },
+  metricsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -8,
+  },
+  metricBox: {
+    width: '50%',
+    padding: 8,
+  },
+  metricBoxInner: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: 12,
+    padding: 16,
+    height: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  metricIcon: {
+    marginBottom: 8,
+  },
+  metricTitle: {
     fontSize: 13,
     color: colors.secondaryText,
+    marginBottom: 4,
+  },
+  metricValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: colors.text,
   },
 });
 
@@ -150,6 +187,12 @@ interface Recommendation {
   icon: string;
   color: string;
   message: string;
+}
+
+interface PerfDay {
+  id: string;
+  perf: number;
+  label: string;
 }
 
 function getRecommendation(pi: number, loadScore: number, recoveryEfficiency: number): Recommendation {
@@ -270,118 +313,114 @@ function DailyRecCard({ rec }: { rec: Recommendation }) {
   );
 }
 
-function MetricsGrid({ metrics }: { metrics: any }) {
-  const router = useRouter();
+function WeeklyPerfChart() {
+  const [days, setDays] = useState<PerfDay[]>([]);
 
-  const sleepDurationHours = metrics?.sleepDuration ? (metrics.sleepDuration / 60).toFixed(1) : '0.0';
-  const hrvValue = metrics?.hrv ? Math.round(metrics.hrv) : 0;
-  const restingHRValue = metrics?.restingHR ? Math.round(metrics.restingHR) : 0;
-  const vo2maxValue = metrics?.vo2max ? Math.round(metrics.vo2max) : 0;
+  useEffect(() => {
+    const dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    const generatedDays = dayLabels.map((label, index) => ({
+      id: `day-${index}`,
+      perf: Math.random() * 40 + 50,
+      label,
+    }));
+    setDays(generatedDays);
+  }, []);
+
+  return (
+    <View style={styles.chartCard}>
+      <Text style={styles.chartTitle}>Weekly Performance</Text>
+      <View style={styles.chartContainer}>
+        {days.map((day) => {
+          const barHeight = (day.perf / 100) * 100;
+          const perfRounded = Math.round(day.perf);
+
+          return (
+            <View key={day.id} style={styles.barContainer}>
+              <View style={[styles.bar, { height: barHeight }]} />
+              <Text style={styles.barValue}>{perfRounded}</Text>
+              <Text style={styles.barLabel}>{day.label}</Text>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+function MetricsGrid({ metrics }: { metrics: any }) {
+  const loadScore = metrics?.loadScore ?? 0;
+  const recoveryEfficiency = metrics?.recoveryEfficiency ?? 0;
+  const vo2max = metrics?.vo2max ?? 0;
+  const hrv = metrics?.hrv ?? 0;
+
+  const loadRounded = Math.round(loadScore);
+  const recoveryRounded = Math.round(recoveryEfficiency);
+  const vo2maxRounded = Math.round(vo2max);
+  const hrvRounded = Math.round(hrv);
 
   return (
     <View style={styles.metricsGrid}>
-      <TouchableOpacity
-        style={styles.metricCard}
-        activeOpacity={0.7}
-        onPress={() => {
-          console.log('Navigating to Sleep detail');
-          router.push('/sleep-detail');
-        }}
-      >
-        <View style={styles.metricCardInner}>
-          <View style={styles.metricHeader}>
-            <IconSymbol
-              ios_icon_name="moon.fill"
-              android_material_icon_name="hotel"
-              size={20}
-              color="#AF52DE"
-              style={styles.metricIcon}
-            />
-            <Text style={styles.metricTitle}>Sleep</Text>
-          </View>
-          <Text style={styles.metricValue}>{sleepDurationHours}</Text>
-          <Text style={styles.metricLabel}>hours</Text>
+      <View style={styles.metricBox}>
+        <View style={styles.metricBoxInner}>
+          <IconSymbol
+            ios_icon_name="flame.fill"
+            android_material_icon_name="local-fire-department"
+            size={28}
+            color="#007AFF"
+            style={styles.metricIcon}
+          />
+          <Text style={styles.metricTitle}>Load</Text>
+          <Text style={styles.metricValue}>{loadRounded}</Text>
         </View>
-      </TouchableOpacity>
+      </View>
 
-      <TouchableOpacity
-        style={styles.metricCard}
-        activeOpacity={0.7}
-        onPress={() => {
-          console.log('Navigating to Recovery detail');
-          router.push('/recovery-detail');
-        }}
-      >
-        <View style={styles.metricCardInner}>
-          <View style={styles.metricHeader}>
-            <IconSymbol
-              ios_icon_name="waveform.path.ecg"
-              android_material_icon_name="favorite"
-              size={20}
-              color="#FF3B30"
-              style={styles.metricIcon}
-            />
-            <Text style={styles.metricTitle}>HRV</Text>
-          </View>
-          <Text style={styles.metricValue}>{hrvValue}</Text>
-          <Text style={styles.metricLabel}>ms</Text>
+      <View style={styles.metricBox}>
+        <View style={styles.metricBoxInner}>
+          <IconSymbol
+            ios_icon_name="heart.fill"
+            android_material_icon_name="favorite"
+            size={28}
+            color="#007AFF"
+            style={styles.metricIcon}
+          />
+          <Text style={styles.metricTitle}>Recovery</Text>
+          <Text style={styles.metricValue}>{recoveryRounded}</Text>
         </View>
-      </TouchableOpacity>
+      </View>
 
-      <TouchableOpacity
-        style={styles.metricCard}
-        activeOpacity={0.7}
-        onPress={() => {
-          console.log('Navigating to Recovery detail');
-          router.push('/recovery-detail');
-        }}
-      >
-        <View style={styles.metricCardInner}>
-          <View style={styles.metricHeader}>
-            <IconSymbol
-              ios_icon_name="heart.fill"
-              android_material_icon_name="favorite"
-              size={20}
-              color="#FF2D55"
-              style={styles.metricIcon}
-            />
-            <Text style={styles.metricTitle}>Resting HR</Text>
-          </View>
-          <Text style={styles.metricValue}>{restingHRValue}</Text>
-          <Text style={styles.metricLabel}>bpm</Text>
+      <View style={styles.metricBox}>
+        <View style={styles.metricBoxInner}>
+          <IconSymbol
+            ios_icon_name="wind"
+            android_material_icon_name="air"
+            size={28}
+            color="#007AFF"
+            style={styles.metricIcon}
+          />
+          <Text style={styles.metricTitle}>VO2 Max</Text>
+          <Text style={styles.metricValue}>{vo2maxRounded}</Text>
         </View>
-      </TouchableOpacity>
+      </View>
 
-      <TouchableOpacity
-        style={styles.metricCard}
-        activeOpacity={0.7}
-        onPress={() => {
-          console.log('Navigating to Strain detail');
-          router.push('/strain-detail');
-        }}
-      >
-        <View style={styles.metricCardInner}>
-          <View style={styles.metricHeader}>
-            <IconSymbol
-              ios_icon_name="figure.run"
-              android_material_icon_name="directions-run"
-              size={20}
-              color="#34C759"
-              style={styles.metricIcon}
-            />
-            <Text style={styles.metricTitle}>VO2 Max</Text>
-          </View>
-          <Text style={styles.metricValue}>{vo2maxValue}</Text>
-          <Text style={styles.metricLabel}>ml/kg/min</Text>
+      <View style={styles.metricBox}>
+        <View style={styles.metricBoxInner}>
+          <IconSymbol
+            ios_icon_name="waveform.path.ecg"
+            android_material_icon_name="monitor-heart"
+            size={28}
+            color="#007AFF"
+            style={styles.metricIcon}
+          />
+          <Text style={styles.metricTitle}>HRV</Text>
+          <Text style={styles.metricValue}>{hrvRounded}</Text>
         </View>
-      </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
 export default function ActivityScreen() {
   const { metrics, loading } = useDailySync();
-  const router = useRouter();
 
   if (loading) {
     return (
@@ -421,6 +460,7 @@ export default function ActivityScreen() {
       >
         <PerformanceGauge index={performanceIndex} />
         <DailyRecCard rec={recommendation} />
+        <WeeklyPerfChart />
         <MetricsGrid metrics={metrics} />
       </ScrollView>
     </SafeAreaView>
