@@ -1,6 +1,9 @@
 
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '@/styles/commonStyles';
+import { SubscriptionProduct } from '@/types/subscription';
+import { Stack, useRouter } from 'expo-router';
+import { useSubscription } from '@/hooks/useSubscription';
+import { IconSymbol } from '@/components/IconSymbol';
+import DataManager from '@/services/DataManager';
 import React, { useState } from 'react';
 import {
   View,
@@ -14,336 +17,105 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { SubscriptionProduct } from '@/types/subscription';
-import { IconSymbol } from '@/components/IconSymbol';
-import { useSubscription } from '@/hooks/useSubscription';
-import { Stack, useRouter } from 'expo-router';
-import DataManager from '@/services/DataManager';
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scrollContent: {
-    paddingBottom: 100,
-  },
-  section: {
-    marginTop: 24,
-    paddingHorizontal: 20,
-  },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 8,
-  },
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-  },
-  subscriptionCard: {
-    backgroundColor: colors.primary,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 12,
-  },
-  subscriptionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 8,
-  },
-  subscriptionDesc: {
-    fontSize: 15,
-    color: '#FFFFFF',
-    opacity: 0.9,
-    marginBottom: 16,
-  },
-  upgradeButton: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  upgradeButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  premiumBadge: {
-    backgroundColor: '#FFD700',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    alignSelf: 'flex-start',
-    marginBottom: 8,
-  },
-  premiumBadgeText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#000000',
-  },
-  premiumTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  premiumDesc: {
-    fontSize: 15,
-    color: colors.textSecondary,
-  },
-  premiumRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  premiumLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    flex: 1,
-  },
-  premiumValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  manageButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  manageButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  restoreButton: {
-    backgroundColor: colors.border,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  restoreButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  promoText: {
-    fontSize: 15,
-    color: '#FFFFFF',
-    opacity: 0.9,
-    marginBottom: 16,
-    lineHeight: 22,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    marginBottom: 8,
-  },
-  menuItemContent: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  menuItemTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  menuItemSubtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  deleteButton: {
-    backgroundColor: '#FF3B30',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  deleteButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: colors.card,
-    borderRadius: 20,
-    padding: 24,
-    width: '85%',
-    maxWidth: 400,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  modalMessage: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    marginBottom: 24,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  modalButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  modalButtonCancel: {
-    backgroundColor: colors.border,
-  },
-  modalButtonConfirm: {
-    backgroundColor: '#FF3B30',
-  },
-  modalButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  modalButtonTextCancel: {
-    color: colors.text,
-  },
-  modalButtonTextConfirm: {
-    color: '#FFFFFF',
-  },
-});
+import { colors } from '@/styles/commonStyles';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ProfileScreen() {
-  const { isSubscribed, currentSubscription, expirationDate, isLoading, purchase, restorePurchases } = useSubscription();
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const router = useRouter();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const { status, loading } = useSubscription();
 
-  const handleEditProfile = () => {
-    console.log('User tapped Edit Profile');
+  function handleEditProfile() {
+    console.log('User tapped Edit Profile button');
     router.push('/edit-profile');
-  };
+  }
 
-  const handleUpgradeToPremium = () => {
-    console.log('User tapped Upgrade to Premium');
-    router.push('/subscription');
-  };
+  function handleUpgradeToPremium() {
+    console.log('User tapped Upgrade to Premium button');
+    router.push('/subscription-onboarding');
+  }
 
-  const handleManageSubscription = () => {
-    console.log('User tapped Manage Subscription');
-    if (Platform.OS === 'ios') {
-      Linking.openURL('https://apps.apple.com/account/subscriptions');
-    } else {
-      Alert.alert(
-        'Manage Subscription',
-        'Please visit the Google Play Store to manage your subscription.'
-      );
-    }
-  };
+  function handleManageSubscription() {
+    console.log('User tapped Manage Subscription button');
+    Linking.openURL('https://apps.apple.com/account/subscriptions');
+  }
 
-  const handleRestorePurchases = async () => {
-    console.log('User tapped Restore Purchases');
-    const success = await restorePurchases();
-    
-    if (success) {
-      Alert.alert(
-        'Success',
-        'Your purchases have been restored successfully!'
-      );
-    } else {
-      Alert.alert(
-        'No Purchases Found',
-        'We could not find any previous purchases to restore.'
-      );
-    }
-  };
+  async function handleRestorePurchases() {
+    console.log('User tapped Restore Purchases button');
+    // TODO: Implement restore purchases logic
+    Alert.alert('Restore Purchases', 'No purchases found to restore.');
+  }
 
-  const handleHealthKitPermissions = () => {
-    console.log('User tapped HealthKit Permissions');
-    if (Platform.OS === 'ios') {
-      Linking.openURL('app-settings:');
-    } else {
-      Alert.alert(
-        'HealthKit',
-        'HealthKit is only available on iOS devices.'
-      );
-    }
-  };
+  function handleHealthKitPermissions() {
+    console.log('User tapped HealthKit Permissions button');
+    router.push('/onboarding/healthkit-permission');
+  }
 
-  const handleMetricsGuide = () => {
-    console.log('User tapped Metrics Guide');
+  function handleMetricsGuide() {
+    console.log('User tapped Metrics Guide button');
     router.push('/metrics-glossary');
-  };
+  }
 
-  const handlePrivacyLink = () => {
-    console.log('User tapped Privacy Policy');
+  function handlePrivacyLink() {
+    console.log('User tapped Privacy Policy link');
     Linking.openURL('https://example.com/privacy');
-  };
+  }
 
-  const handleTermsLink = () => {
-    console.log('User tapped Terms of Service');
+  function handleTermsLink() {
+    console.log('User tapped Terms of Service link');
     Linking.openURL('https://example.com/terms');
-  };
+  }
 
-  const handleDeleteAllData = () => {
-    console.log('User tapped Delete All Data');
+  function handleDeleteAllData() {
+    console.log('User tapped Delete All Data button');
     setShowDeleteModal(true);
-  };
+  }
 
-  const confirmDeleteAllData = async () => {
+  async function confirmDeleteAllData() {
     console.log('User confirmed Delete All Data');
     setShowDeleteModal(false);
     try {
-      await DataManager.deleteAllData();
-      Alert.alert(
-        'Success',
-        'All data has been deleted. Please restart the app.',
-        [{ text: 'OK' }]
-      );
+      await DataManager.clearAllData();
+      Alert.alert('Success', 'All data has been deleted.');
     } catch (error) {
       console.error('Error deleting data:', error);
-      Alert.alert('Error', 'Failed to delete data. Please try again.');
+      Alert.alert('Error', 'Failed to delete data.');
     }
-  };
+  }
 
-  const cancelDeleteAllData = () => {
+  function cancelDeleteAllData() {
     console.log('User cancelled Delete All Data');
     setShowDeleteModal(false);
-  };
+  }
 
-  const formatDate = (date: Date | undefined): string => {
+  function formatDate(date: Date | undefined): string {
     if (!date) return 'N/A';
-    const options: Intl.DateTimeFormatOptions = { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    };
-    return date.toLocaleDateString(undefined, options);
-  };
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  }
 
-  const loadingIndicator = isLoading;
-  const userIsSubscribed = isSubscribed;
-  const subscriptionExpiry = expirationDate;
+  function getPlanName(productId: string | undefined): string {
+    if (!productId) return 'Premium';
+    if (productId.includes('monthly')) return 'Monthly';
+    if (productId.includes('annual')) return 'Annual';
+    if (productId.includes('lifetime')) return 'Lifetime';
+    return 'Premium';
+  }
+
+  function getPlanPrice(productId: string | undefined): string {
+    if (!productId) return '';
+    if (productId.includes('monthly')) return '$1.49/mo';
+    if (productId.includes('annual')) return '$9.99/yr';
+    if (productId.includes('lifetime')) return '$89.99';
+    return '';
+  }
+
+  function isLifetime(productId: string | undefined): boolean {
+    return productId?.includes('lifetime') || false;
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -351,216 +123,222 @@ export default function ProfileScreen() {
         options={{
           title: 'Profile',
           headerShown: true,
-          headerStyle: {
-            backgroundColor: colors.background,
-          },
+          headerStyle: { backgroundColor: colors.bgPrimary },
           headerTintColor: colors.text,
-          headerShadowVisible: false,
         }}
       />
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.scrollContent}
-        contentInsetAdjustmentBehavior="automatic"
-      >
+      <ScrollView style={styles.scrollView}>
+        {/* Subscription Section */}
         <View style={styles.section}>
-          {loadingIndicator ? (
-            <View style={styles.card}>
-              <ActivityIndicator size="small" color={colors.primary} />
-            </View>
-          ) : userIsSubscribed ? (
-            <View style={styles.card}>
+          <Text style={styles.sectionHeader}>Subscription</Text>
+          {loading ? (
+            <ActivityIndicator size="small" color={colors.accentBlue} />
+          ) : status.isSubscribed ? (
+            <View style={styles.subscribedCard}>
               <View style={styles.premiumBadge}>
-                <Text style={styles.premiumBadgeText}>PREMIUM</Text>
+                <IconSymbol
+                  ios_icon_name="crown.fill"
+                  android_material_icon_name="star"
+                  size={18}
+                  color="#FFD700"
+                />
+                <Text style={styles.badgeText}>Premium Active</Text>
               </View>
-              <Text style={styles.premiumTitle}>BioLoop Premium</Text>
-              <Text style={styles.premiumDesc}>Active</Text>
-              
-              <View style={styles.premiumRow}>
-                <Text style={styles.premiumLabel}>Expires</Text>
-                <Text style={styles.premiumValue}>
-                  {formatDate(subscriptionExpiry)}
-                </Text>
+
+              <View style={styles.detailsContainer}>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Plan</Text>
+                  <Text style={styles.detailValue} numberOfLines={1}>
+                    {getPlanName(status.productId)}
+                  </Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Price</Text>
+                  <Text style={styles.detailValue} numberOfLines={1}>
+                    {getPlanPrice(status.productId)}
+                  </Text>
+                </View>
+                {!isLifetime(status.productId) && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Next Billing</Text>
+                    <Text style={styles.detailValue} numberOfLines={1}>
+                      {formatDate(status.expirationDate)}
+                    </Text>
+                  </View>
+                )}
               </View>
 
               <TouchableOpacity
                 style={styles.manageButton}
                 onPress={handleManageSubscription}
-                activeOpacity={0.8}
               >
-                <Text style={styles.manageButtonText}>Manage Subscription</Text>
+                <Text style={styles.manageText}>Manage Subscription</Text>
+                <IconSymbol
+                  ios_icon_name="chevron.right"
+                  android_material_icon_name="arrow-forward"
+                  size={14}
+                  color="#007AFF"
+                />
               </TouchableOpacity>
             </View>
           ) : (
-            <View style={styles.subscriptionCard}>
-              <Text style={styles.subscriptionTitle}>Upgrade to Premium</Text>
-              <Text style={styles.promoText}>
-                Unlock full history, advanced insights, and more
-              </Text>
-              <TouchableOpacity
-                style={styles.upgradeButton}
-                onPress={handleUpgradeToPremium}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.upgradeButtonText}>Subscribe - $1.49/month</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={styles.restoreButton}
-                onPress={handleRestorePurchases}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.restoreButtonText}>Restore Purchases</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account</Text>
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={handleEditProfile}
-            activeOpacity={0.7}
-          >
-            <IconSymbol
-              ios_icon_name="person.circle.fill"
-              android_material_icon_name="account-circle"
-              size={24}
-              color={colors.primary}
-            />
-            <View style={styles.menuItemContent}>
-              <Text style={styles.menuItemTitle}>Edit Profile</Text>
-              <Text style={styles.menuItemSubtitle}>
-                Update your personal information
-              </Text>
-            </View>
-            <IconSymbol
-              ios_icon_name="chevron.right"
-              android_material_icon_name="chevron-right"
-              size={20}
-              color={colors.textSecondary}
-            />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Health Data</Text>
-          {Platform.OS === 'ios' && (
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={handleHealthKitPermissions}
-              activeOpacity={0.7}
-            >
+            <View style={styles.freeCard}>
               <IconSymbol
-                ios_icon_name="heart.text.square.fill"
-                android_material_icon_name="favorite"
-                size={24}
-                color={colors.primary}
+                ios_icon_name="star.fill"
+                android_material_icon_name="star"
+                size={32}
+                color="#FFD700"
+                style={{ marginBottom: 12 }}
               />
-              <View style={styles.menuItemContent}>
-                <Text style={styles.menuItemTitle}>HealthKit Permissions</Text>
-                <Text style={styles.menuItemSubtitle}>
-                  Manage data access
-                </Text>
+              <Text style={styles.freeTitle}>Upgrade to Premium</Text>
+              <Text style={styles.freeDesc}>
+                Unlimited history, advanced insights, data export
+              </Text>
+
+              <View style={styles.priceRow}>
+                <View style={styles.priceBox}>
+                  <Text style={styles.priceLabel}>Monthly</Text>
+                  <Text style={styles.priceAmount}>$1.49</Text>
+                </View>
+                <View style={styles.priceDivider} />
+                <View style={styles.priceBox}>
+                  <Text style={styles.priceLabel}>Annual</Text>
+                  <Text style={styles.priceAmount}>$9.99</Text>
+                  <Text style={styles.priceSave}>Save 44%</Text>
+                </View>
               </View>
-              <IconSymbol
-                ios_icon_name="chevron.right"
-                android_material_icon_name="chevron-right"
-                size={20}
-                color={colors.textSecondary}
-              />
-            </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.upgradeBtn}
+                onPress={handleUpgradeToPremium}
+              >
+                <Text style={styles.upgradeBtnText}>View Plans</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.restoreBtn}
+                onPress={handleRestorePurchases}
+              >
+                <Text style={styles.restoreBtnText}>Restore Purchases</Text>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
 
+        {/* Profile Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Help & Support</Text>
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={handleMetricsGuide}
-            activeOpacity={0.7}
-          >
+          <Text style={styles.sectionHeader}>Profile</Text>
+          <TouchableOpacity style={styles.listItem} onPress={handleEditProfile}>
             <IconSymbol
-              ios_icon_name="book.fill"
-              android_material_icon_name="menu-book"
+              ios_icon_name="person.circle"
+              android_material_icon_name="person"
               size={24}
-              color={colors.primary}
+              color={colors.text}
             />
-            <View style={styles.menuItemContent}>
-              <Text style={styles.menuItemTitle}>Metrics Guide</Text>
-              <Text style={styles.menuItemSubtitle}>
-                Learn about all health metrics
-              </Text>
-            </View>
+            <Text style={styles.listItemText}>Edit Profile</Text>
             <IconSymbol
               ios_icon_name="chevron.right"
-              android_material_icon_name="chevron-right"
+              android_material_icon_name="arrow-forward"
               size={20}
-              color={colors.textSecondary}
+              color={colors.textMuted}
             />
           </TouchableOpacity>
         </View>
 
+        {/* Settings Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Legal</Text>
+          <Text style={styles.sectionHeader}>Settings</Text>
           <TouchableOpacity
-            style={styles.menuItem}
-            onPress={handlePrivacyLink}
-            activeOpacity={0.7}
+            style={styles.listItem}
+            onPress={handleHealthKitPermissions}
           >
             <IconSymbol
-              ios_icon_name="lock.shield.fill"
-              android_material_icon_name="privacy-tip"
+              ios_icon_name="heart.text.square"
+              android_material_icon_name="favorite"
               size={24}
-              color={colors.primary}
+              color={colors.text}
             />
-            <View style={styles.menuItemContent}>
-              <Text style={styles.menuItemTitle}>Privacy Policy</Text>
-            </View>
+            <Text style={styles.listItemText}>HealthKit Permissions</Text>
             <IconSymbol
               ios_icon_name="chevron.right"
-              android_material_icon_name="chevron-right"
+              android_material_icon_name="arrow-forward"
               size={20}
-              color={colors.textSecondary}
+              color={colors.textMuted}
             />
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={handleTermsLink}
-            activeOpacity={0.7}
-          >
+          <TouchableOpacity style={styles.listItem} onPress={handleMetricsGuide}>
             <IconSymbol
-              ios_icon_name="doc.text.fill"
+              ios_icon_name="book"
+              android_material_icon_name="menu-open"
+              size={24}
+              color={colors.text}
+            />
+            <Text style={styles.listItemText}>Metrics Guide</Text>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="arrow-forward"
+              size={20}
+              color={colors.textMuted}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* Legal Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionHeader}>Legal</Text>
+          <TouchableOpacity style={styles.listItem} onPress={handlePrivacyLink}>
+            <IconSymbol
+              ios_icon_name="lock.shield"
+              android_material_icon_name="lock"
+              size={24}
+              color={colors.text}
+            />
+            <Text style={styles.listItemText}>Privacy Policy</Text>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="arrow-forward"
+              size={20}
+              color={colors.textMuted}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.listItem} onPress={handleTermsLink}>
+            <IconSymbol
+              ios_icon_name="doc.text"
               android_material_icon_name="description"
               size={24}
-              color={colors.primary}
+              color={colors.text}
             />
-            <View style={styles.menuItemContent}>
-              <Text style={styles.menuItemTitle}>Terms of Service</Text>
-            </View>
+            <Text style={styles.listItemText}>Terms of Service</Text>
             <IconSymbol
               ios_icon_name="chevron.right"
-              android_material_icon_name="chevron-right"
+              android_material_icon_name="arrow-forward"
               size={20}
-              color={colors.textSecondary}
+              color={colors.textMuted}
             />
           </TouchableOpacity>
         </View>
 
+        {/* Danger Zone */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Danger Zone</Text>
+          <Text style={styles.sectionHeader}>Danger Zone</Text>
           <TouchableOpacity
-            style={styles.deleteButton}
+            style={[styles.listItem, styles.dangerItem]}
             onPress={handleDeleteAllData}
-            activeOpacity={0.8}
           >
-            <Text style={styles.deleteButtonText}>Delete All Data</Text>
+            <IconSymbol
+              ios_icon_name="trash"
+              android_material_icon_name="delete"
+              size={24}
+              color="#FF3B30"
+            />
+            <Text style={[styles.listItemText, styles.dangerText]}>
+              Delete All Data
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
 
+      {/* Delete Confirmation Modal */}
       <Modal
         visible={showDeleteModal}
         transparent={true}
@@ -578,30 +356,14 @@ export default function ProfileScreen() {
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonCancel]}
                 onPress={cancelDeleteAllData}
-                activeOpacity={0.7}
               >
-                <Text
-                  style={[
-                    styles.modalButtonText,
-                    styles.modalButtonTextCancel,
-                  ]}
-                >
-                  Cancel
-                </Text>
+                <Text style={styles.modalButtonTextCancel}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonConfirm]}
+                style={[styles.modalButton, styles.modalButtonDelete]}
                 onPress={confirmDeleteAllData}
-                activeOpacity={0.7}
               >
-                <Text
-                  style={[
-                    styles.modalButtonText,
-                    styles.modalButtonTextConfirm,
-                  ]}
-                >
-                  Delete
-                </Text>
+                <Text style={styles.modalButtonTextDelete}>Delete</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -610,3 +372,230 @@ export default function ProfileScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.bgPrimary,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  // Profile Section
+  section: {
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    marginBottom: 16,
+  },
+  sectionHeader: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#000000',
+    marginBottom: 12,
+  },
+  // Subscribed
+  subscribedCard: {
+    padding: 16,
+    backgroundColor: '#F5F5F7',
+    borderRadius: 12,
+  },
+  premiumBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: '#FFF9E6',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  badgeText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#000000',
+    marginLeft: 6,
+  },
+  detailsContainer: {
+    marginBottom: 16,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5EA',
+  },
+  detailLabel: {
+    fontSize: 15,
+    color: '#8E8E93',
+    flex: 1,
+  },
+  detailValue: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#000000',
+    flex: 1,
+    textAlign: 'right',
+  },
+  manageButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+  },
+  manageText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#007AFF',
+    marginRight: 4,
+  },
+  // Free User
+  freeCard: {
+    padding: 20,
+    backgroundColor: '#F5F5F7',
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  freeTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#000000',
+    marginBottom: 8,
+  },
+  freeDesc: {
+    fontSize: 14,
+    color: '#8E8E93',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    width: '100%',
+  },
+  priceBox: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  priceDivider: {
+    width: 1,
+    backgroundColor: '#E5E5EA',
+    marginHorizontal: 16,
+  },
+  priceLabel: {
+    fontSize: 13,
+    color: '#8E8E93',
+    marginBottom: 4,
+  },
+  priceAmount: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#000000',
+  },
+  priceSave: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#34C759',
+    marginTop: 2,
+  },
+  upgradeBtn: {
+    backgroundColor: '#007AFF',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 8,
+  },
+  upgradeBtnText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  restoreBtn: {
+    padding: 12,
+    alignItems: 'center',
+  },
+  restoreBtnText: {
+    fontSize: 14,
+    color: '#007AFF',
+  },
+  // List Items
+  listItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+  },
+  listItemText: {
+    flex: 1,
+    fontSize: 16,
+    color: colors.text,
+    marginLeft: 12,
+  },
+  dangerItem: {
+    borderBottomWidth: 0,
+  },
+  dangerText: {
+    color: '#FF3B30',
+  },
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 24,
+    width: '80%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#000000',
+    marginBottom: 12,
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: '#8E8E93',
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  modalButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginHorizontal: 6,
+  },
+  modalButtonCancel: {
+    backgroundColor: '#F5F5F7',
+  },
+  modalButtonDelete: {
+    backgroundColor: '#FF3B30',
+  },
+  modalButtonTextCancel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000000',
+  },
+  modalButtonTextDelete: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+});
