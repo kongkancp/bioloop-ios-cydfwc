@@ -1,6 +1,6 @@
 
 import { Platform } from 'react-native';
-import { SubscriptionProduct, SubscriptionStatus } from '@/types/subscription';
+import { SubscriptionProduct, SubscriptionStatus, PRODUCTS } from '@/types/subscription';
 
 // StoreKit 2 Product interface
 export interface Product {
@@ -12,6 +12,77 @@ export interface Product {
 
 // Subscription status listener callback type
 type StatusListener = (status: SubscriptionStatus) => void;
+
+/**
+ * Calculate savings between monthly and annual plans
+ */
+export function calculateSavings(): { amount: number; percent: number } {
+  const monthlyYearly = PRODUCTS.MONTHLY.price * 12; // $17.88
+  const annual = PRODUCTS.ANNUAL.price; // $9.99
+  const savings = monthlyYearly - annual; // $7.89
+  const percent = Math.round((savings / monthlyYearly) * 100); // 44%
+  return { amount: savings, percent };
+}
+
+/**
+ * Calculate expiration date based on product type
+ */
+function calculateExpiration(productId: string): Date {
+  const now = new Date();
+  
+  if (productId.includes('monthly')) {
+    return new Date(now.setMonth(now.getMonth() + 1));
+  } else if (productId.includes('annual')) {
+    return new Date(now.setFullYear(now.getFullYear() + 1));
+  } else if (productId.includes('lifetime')) {
+    return new Date('2099-12-31'); // Effectively infinite
+  }
+  
+  return now;
+}
+
+/**
+ * Purchase a subscription product
+ */
+export async function purchaseProduct(productId: string): Promise<void> {
+  console.log('SubscriptionManager: Purchasing product', productId);
+  
+  try {
+    if (Platform.OS === 'ios') {
+      // TODO: Backend Integration - POST /api/subscriptions/purchase
+      // Body: { productId: string }
+      // This should call native StoreKit 2 product.purchase() via a native module
+      // Returns: { success: boolean, transaction?: Transaction }
+      console.log('SubscriptionManager: Would call StoreKit product.purchase()');
+    }
+
+    // Mock successful purchase
+    await saveSubscription({
+      isSubscribed: true,
+      productId,
+      purchaseDate: new Date(),
+      expirationDate: calculateExpiration(productId),
+    });
+
+    console.log('✓ Purchase successful');
+  } catch (error) {
+    console.error('❌ Purchase failed:', error);
+    throw error;
+  }
+}
+
+/**
+ * Save subscription data (mock implementation)
+ */
+async function saveSubscription(data: {
+  isSubscribed: boolean;
+  productId: string;
+  purchaseDate: Date;
+  expirationDate: Date;
+}): Promise<void> {
+  console.log('SubscriptionManager: Saving subscription', data);
+  // In production, this would save to AsyncStorage or native storage
+}
 
 class SubscriptionManager {
   private isSubscribed: boolean = false;
@@ -53,7 +124,7 @@ class SubscriptionManager {
 
   /**
    * Load available subscription products from StoreKit
-   * Equivalent to: Product.products(for: ["bioloop.premium.monthly", "bioloop.premium.yearly"])
+   * Equivalent to: Product.products(for: ["bioloop.premium.monthly", "bioloop.premium.annual", "bioloop.premium.lifetime"])
    */
   private async loadProducts(): Promise<void> {
     console.log('SubscriptionManager: Loading products');
@@ -66,19 +137,25 @@ class SubscriptionManager {
         console.log('SubscriptionManager: Would call StoreKit Product.products(for:)');
       }
 
-      // Mock products matching the Swift implementation
+      // Mock products matching the new 3-tier structure
       this.products = [
         {
           id: SubscriptionProduct.MONTHLY,
-          displayName: 'Monthly Premium',
-          displayPrice: '$1.99',
-          price: 1.99,
+          displayName: PRODUCTS.MONTHLY.displayName,
+          displayPrice: PRODUCTS.MONTHLY.displayPrice,
+          price: PRODUCTS.MONTHLY.price,
         },
         {
-          id: SubscriptionProduct.YEARLY,
-          displayName: 'Annual Premium',
-          displayPrice: '$14.99',
-          price: 14.99,
+          id: SubscriptionProduct.ANNUAL,
+          displayName: PRODUCTS.ANNUAL.displayName,
+          displayPrice: PRODUCTS.ANNUAL.displayPrice,
+          price: PRODUCTS.ANNUAL.price,
+        },
+        {
+          id: SubscriptionProduct.LIFETIME,
+          displayName: PRODUCTS.LIFETIME.displayName,
+          displayPrice: PRODUCTS.LIFETIME.displayPrice,
+          price: PRODUCTS.LIFETIME.price,
         },
       ];
 
@@ -94,38 +171,17 @@ class SubscriptionManager {
    * Equivalent to: product.purchase() -> VerificationResult<Transaction>
    */
   async purchase(productId: SubscriptionProduct): Promise<boolean> {
-    console.log('SubscriptionManager: Purchasing product', productId);
-
     try {
-      const product = this.products.find((p) => p.id === productId);
-      if (!product) {
-        throw new Error(`Product not found: ${productId}`);
-      }
-
-      if (Platform.OS === 'ios') {
-        // TODO: Backend Integration - POST /api/subscriptions/purchase
-        // Body: { productId: string }
-        // This should call native StoreKit 2 product.purchase() via a native module
-        // Returns: { success: boolean, transaction?: Transaction }
-        console.log('SubscriptionManager: Would call StoreKit product.purchase()');
-        
-        // The Swift implementation does:
-        // 1. let result = try await product.purchase()
-        // 2. switch result { case .success(let verification): ... }
-        // 3. let transaction = try checkVerified(verification)
-        // 4. await updateSubscriptionStatus()
-        // 5. await transaction.finish()
-      }
-
-      // Mock successful purchase
+      await purchaseProduct(productId);
+      
+      // Update local state
       this.isSubscribed = true;
       this.currentSubscription = productId;
-      this.expirationDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days from now
+      this.expirationDate = calculateExpiration(productId);
 
       // Notify listeners
       this.notifyListeners();
 
-      console.log('✓ Purchase successful');
       return true;
     } catch (error) {
       console.error('❌ Purchase failed:', error);

@@ -3,17 +3,22 @@
 
 export enum SubscriptionProduct {
   MONTHLY = 'bioloop.premium.monthly',
-  YEARLY = 'bioloop.premium.yearly',
+  ANNUAL = 'bioloop.premium.annual',
+  LIFETIME = 'bioloop.premium.lifetime',
 }
 
 export interface SubscriptionProductInfo {
   id: SubscriptionProduct;
   displayName: string;
   description: string;
-  price: string;
+  price: number;
+  displayPrice: string;
+  period: 'month' | 'year' | 'lifetime';
   pricePerMonth?: string;
-  savings?: string;
+  savings?: number;
+  trialDays: number;
   featured?: boolean;
+  hidden?: boolean;
 }
 
 export interface SubscriptionStatus {
@@ -22,23 +27,45 @@ export interface SubscriptionStatus {
   expirationDate?: Date;
 }
 
-export const SUBSCRIPTION_PRODUCTS: SubscriptionProductInfo[] = [
-  {
+export const PRODUCTS: Record<string, SubscriptionProductInfo> = {
+  MONTHLY: {
     id: SubscriptionProduct.MONTHLY,
-    displayName: 'Monthly',
-    description: 'Full access to all premium features',
-    price: '$1.49',
+    displayName: 'Monthly Premium',
+    description: 'Full access to premium features',
+    price: 1.49,
+    displayPrice: '$1.49',
+    period: 'month',
     pricePerMonth: '$1.49/month',
+    trialDays: 7,
   },
-  {
-    id: SubscriptionProduct.YEARLY,
-    displayName: 'Annual',
-    description: 'Best value - save 50%',
-    price: '$8.99',
-    pricePerMonth: '$0.75/month',
-    savings: 'Save $9',
+  ANNUAL: {
+    id: SubscriptionProduct.ANNUAL,
+    displayName: 'Annual Premium',
+    description: 'Best value - save 44%',
+    price: 9.99,
+    displayPrice: '$9.99',
+    period: 'year',
+    pricePerMonth: '$0.83/month',
+    savings: 44,
+    trialDays: 7,
     featured: true,
   },
+  LIFETIME: {
+    id: SubscriptionProduct.LIFETIME,
+    displayName: 'Lifetime Access',
+    description: 'One-time payment, lifetime access',
+    price: 89.99,
+    displayPrice: '$89.99',
+    period: 'lifetime',
+    trialDays: 0,
+    hidden: true, // Don't show in onboarding
+  },
+};
+
+// Legacy array for backward compatibility
+export const SUBSCRIPTION_PRODUCTS: SubscriptionProductInfo[] = [
+  PRODUCTS.MONTHLY,
+  PRODUCTS.ANNUAL,
 ];
 
 export const FREE_TIER_LIMITS = {
