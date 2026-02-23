@@ -1,5 +1,8 @@
 
-import { colors } from '@/styles/commonStyles';
+import { SubscriptionProduct } from '@/types/subscription';
+import { Stack, useRouter } from 'expo-router';
+import { IconSymbol } from '@/components/IconSymbol';
+import SubscriptionManager from '@/services/SubscriptionManager';
 import {
   View,
   Text,
@@ -10,266 +13,10 @@ import {
   Modal,
   Linking,
 } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { IconSymbol } from '@/components/IconSymbol';
 import { Colors } from '@/constants/Colors';
-import SubscriptionManager from '@/services/SubscriptionManager';
-import { SubscriptionProduct } from '@/types/subscription';
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.bgPrimary,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 100,
-  },
-  header: {
-    marginBottom: 32,
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 17,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  features: {
-    marginBottom: 32,
-  },
-  featureRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.bgCard,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  featureIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.bgSurface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  featureText: {
-    flex: 1,
-  },
-  featureTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-    marginBottom: 2,
-  },
-  featureDescription: {
-    fontSize: 14,
-    color: Colors.textMuted,
-  },
-  plans: {
-    marginBottom: 32,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-    marginBottom: 16,
-  },
-  planCard: {
-    backgroundColor: Colors.bgCard,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 12,
-    borderWidth: 2,
-    borderColor: Colors.borderSubtle,
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-    position: 'relative',
-  },
-  planSelected: {
-    borderColor: Colors.accentBlue,
-    borderWidth: 2,
-  },
-  planAnnual: {
-    backgroundColor: Colors.bgCard,
-  },
-  bestValueBadge: {
-    position: 'absolute',
-    top: -8,
-    right: 16,
-    backgroundColor: Colors.accentOrange,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  bestValueText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: Colors.bgPrimary,
-    letterSpacing: 0.5,
-  },
-  planHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'baseline',
-    marginBottom: 4,
-  },
-  planName: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-  },
-  planPrice: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
-  planPeriod: {
-    fontSize: 14,
-    color: Colors.textMuted,
-    marginBottom: 8,
-  },
-  planSavings: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.accentGreen,
-    marginBottom: 4,
-  },
-  planDescription: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-  },
-  selectedBadge: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-  },
-  trialNotice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.bgSurface,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  trialText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.accentBlue,
-    marginLeft: 8,
-  },
-  subscribeButton: {
-    backgroundColor: Colors.accentBlue,
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 12,
-    shadowColor: Colors.accentBlue,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  subscribeButtonText: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: Colors.bgPrimary,
-  },
-  restoreButton: {
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  restoreText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.accentBlue,
-  },
-  terms: {
-    fontSize: 12,
-    color: Colors.textMuted,
-    textAlign: 'center',
-    lineHeight: 18,
-    marginBottom: 16,
-  },
-  links: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  link: {
-    fontSize: 12,
-    color: Colors.accentBlue,
-    fontWeight: '600',
-  },
-  linkSeparator: {
-    fontSize: 12,
-    color: Colors.textMuted,
-    marginHorizontal: 8,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    backgroundColor: Colors.bgCard,
-    borderRadius: 16,
-    padding: 24,
-    width: '100%',
-    maxWidth: 400,
-    alignItems: 'center',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  modalMessage: {
-    fontSize: 15,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 22,
-  },
-  modalButton: {
-    backgroundColor: Colors.accentBlue,
-    paddingVertical: 12,
-    paddingHorizontal: 32,
-    borderRadius: 8,
-    width: '100%',
-  },
-  modalButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.bgPrimary,
-    textAlign: 'center',
-  },
-});
+import React, { useState } from 'react';
+import { colors } from '@/styles/commonStyles';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface FeatureRowProps {
   icon: string;
@@ -277,102 +24,9 @@ interface FeatureRowProps {
   description: string;
 }
 
-function FeatureRow({ icon, title, description }: FeatureRowProps) {
-  return (
-    <View style={styles.featureRow}>
-      <View style={styles.featureIcon}>
-        <IconSymbol
-          ios_icon_name={icon}
-          android_material_icon_name="check"
-          size={24}
-          color={Colors.accentBlue}
-        />
-      </View>
-      <View style={styles.featureText}>
-        <Text style={styles.featureTitle}>{title}</Text>
-        <Text style={styles.featureDescription}>{description}</Text>
-      </View>
-      <IconSymbol
-        ios_icon_name="checkmark"
-        android_material_icon_name="check"
-        size={20}
-        color={Colors.accentGreen}
-      />
-    </View>
-  );
-}
-
 interface PricingPlansProps {
   selected: 'monthly' | 'annual';
   onSelect: (plan: 'monthly' | 'annual') => void;
-}
-
-function PricingPlans({ selected, onSelect }: PricingPlansProps) {
-  const isMonthlySelected = selected === 'monthly';
-  const isAnnualSelected = selected === 'annual';
-
-  return (
-    <View style={styles.plans}>
-      <Text style={styles.sectionTitle}>Choose Your Plan</Text>
-
-      {/* Monthly Plan */}
-      <TouchableOpacity
-        style={[styles.planCard, isMonthlySelected && styles.planSelected]}
-        onPress={() => onSelect('monthly')}
-        activeOpacity={0.7}
-      >
-        <View style={styles.planHeader}>
-          <Text style={styles.planName}>Monthly</Text>
-          <Text style={styles.planPrice}>$1.49</Text>
-        </View>
-        <Text style={styles.planPeriod}>per month</Text>
-        <Text style={styles.planDescription}>Full access to premium features</Text>
-        {isMonthlySelected && (
-          <View style={styles.selectedBadge}>
-            <IconSymbol
-              ios_icon_name="checkmark.circle.fill"
-              android_material_icon_name="check-circle"
-              size={20}
-              color={Colors.accentGreen}
-            />
-          </View>
-        )}
-      </TouchableOpacity>
-
-      {/* Annual Plan - BEST VALUE */}
-      <TouchableOpacity
-        style={[
-          styles.planCard,
-          styles.planAnnual,
-          isAnnualSelected && styles.planSelected,
-        ]}
-        onPress={() => onSelect('annual')}
-        activeOpacity={0.7}
-      >
-        <View style={styles.bestValueBadge}>
-          <Text style={styles.bestValueText}>BEST VALUE</Text>
-        </View>
-
-        <View style={styles.planHeader}>
-          <Text style={styles.planName}>Annual</Text>
-          <Text style={styles.planPrice}>$9.99</Text>
-        </View>
-        <Text style={styles.planPeriod}>per year</Text>
-        <Text style={styles.planSavings}>Save 44% • Just $0.83/month</Text>
-        <Text style={styles.planDescription}>Save 44% compared to monthly</Text>
-        {isAnnualSelected && (
-          <View style={styles.selectedBadge}>
-            <IconSymbol
-              ios_icon_name="checkmark.circle.fill"
-              android_material_icon_name="check-circle"
-              size={20}
-              color={Colors.accentGreen}
-            />
-          </View>
-        )}
-      </TouchableOpacity>
-    </View>
-  );
 }
 
 interface SubscriptionActionsProps {
@@ -382,18 +36,103 @@ interface SubscriptionActionsProps {
   isLoading: boolean;
 }
 
-function SubscriptionActions({ plan, onSubscribe, onRestore, isLoading }: SubscriptionActionsProps) {
-  const priceText = plan === 'monthly' ? '$1.49/month' : '$9.99/year';
+function FeatureRow({ icon, title, description }: FeatureRowProps) {
+  return (
+    <View style={styles.featureRow}>
+      <View style={styles.featureIcon}>
+        <IconSymbol
+          ios_icon_name={icon}
+          android_material_icon_name={icon}
+          size={24}
+          color="#007AFF"
+        />
+      </View>
+      <View style={styles.featureText}>
+        <Text style={styles.featureTitle}>{title}</Text>
+        <Text style={styles.featureDescription}>{description}</Text>
+      </View>
+    </View>
+  );
+}
 
+function PricingPlans({ selected, onSelect }: PricingPlansProps) {
+  return (
+    <View style={styles.plans}>
+      <Text style={styles.sectionTitle}>Choose Your Plan</Text>
+
+      {/* Monthly Plan */}
+      <TouchableOpacity
+        style={[styles.planCard, selected === 'monthly' && styles.planSelected]}
+        onPress={() => onSelect('monthly')}
+      >
+        {selected === 'monthly' && (
+          <View style={styles.selectedBadge}>
+            <IconSymbol
+              ios_icon_name="checkmark.circle.fill"
+              android_material_icon_name="check-circle"
+              size={20}
+              color="#34C759"
+            />
+          </View>
+        )}
+        <View style={styles.planHeader}>
+          <Text style={styles.planName}>Monthly</Text>
+          <Text style={styles.planPrice}>$1.49</Text>
+        </View>
+        <Text style={styles.planPeriod}>per month</Text>
+        <Text style={styles.planDescription}>Full access to premium features</Text>
+      </TouchableOpacity>
+
+      {/* Annual Plan - BEST VALUE */}
+      <TouchableOpacity
+        style={[
+          styles.planCard,
+          styles.planAnnual,
+          selected === 'annual' && styles.planSelected,
+        ]}
+        onPress={() => onSelect('annual')}
+      >
+        <View style={styles.bestValueBadge}>
+          <Text style={styles.bestValueText}>BEST VALUE</Text>
+        </View>
+
+        {selected === 'annual' && (
+          <View style={styles.selectedBadge}>
+            <IconSymbol
+              ios_icon_name="checkmark.circle.fill"
+              android_material_icon_name="check-circle"
+              size={20}
+              color="#34C759"
+            />
+          </View>
+        )}
+        <View style={styles.planHeader}>
+          <Text style={styles.planName}>Annual</Text>
+          <Text style={styles.planPrice}>$9.99</Text>
+        </View>
+        <Text style={styles.planPeriod}>per year</Text>
+        <Text style={styles.planSavings}>Save 44% • Just $0.83/month</Text>
+        <Text style={styles.planDescription}>Save 44% compared to monthly</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+function SubscriptionActions({
+  plan,
+  onSubscribe,
+  onRestore,
+  isLoading,
+}: SubscriptionActionsProps) {
   const handleTermsPress = () => {
-    console.log('User tapped Terms link');
-    Linking.openURL('https://bioloop.app/terms');
+    Linking.openURL('https://example.com/terms');
   };
 
   const handlePrivacyPress = () => {
-    console.log('User tapped Privacy link');
-    Linking.openURL('https://bioloop.app/privacy');
+    Linking.openURL('https://example.com/privacy');
   };
+
+  const planPrice = plan === 'monthly' ? '$1.49/month' : '$9.99/year';
 
   return (
     <>
@@ -403,7 +142,7 @@ function SubscriptionActions({ plan, onSubscribe, onRestore, isLoading }: Subscr
           ios_icon_name="gift.fill"
           android_material_icon_name="card-giftcard"
           size={24}
-          color={Colors.accentBlue}
+          color="#007AFF"
         />
         <Text style={styles.trialText}>Start 7-day free trial</Text>
       </View>
@@ -413,31 +152,29 @@ function SubscriptionActions({ plan, onSubscribe, onRestore, isLoading }: Subscr
         style={styles.subscribeButton}
         onPress={onSubscribe}
         disabled={isLoading}
-        activeOpacity={0.8}
       >
         {isLoading ? (
-          <ActivityIndicator color={Colors.bgPrimary} />
+          <ActivityIndicator color="#FFFFFF" />
         ) : (
           <Text style={styles.subscribeButtonText}>Start Free Trial</Text>
         )}
       </TouchableOpacity>
 
-      {/* Restore Button */}
+      {/* Restore */}
       <TouchableOpacity
         style={styles.restoreButton}
         onPress={onRestore}
         disabled={isLoading}
-        activeOpacity={0.7}
       >
         <Text style={styles.restoreText}>Restore Purchases</Text>
       </TouchableOpacity>
 
       {/* Terms */}
       <Text style={styles.terms}>
-        Free for 7 days, then {priceText}. Cancel anytime. Auto-renews unless cancelled 24h before period ends.
+        Free for 7 days, then {planPrice}. Cancel anytime. Auto-renews unless
+        cancelled 24h before period ends.
       </Text>
 
-      {/* Links */}
       <View style={styles.links}>
         <TouchableOpacity onPress={handleTermsPress}>
           <Text style={styles.link}>Terms</Text>
@@ -452,14 +189,11 @@ function SubscriptionActions({ plan, onSubscribe, onRestore, isLoading }: Subscr
 }
 
 export default function SubscriptionOnboardingScreen() {
+  const router = useRouter();
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>('annual');
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showRestoreModal, setShowRestoreModal] = useState(false);
-  const [modalMessage, setModalMessage] = useState('');
-  const router = useRouter();
-
-  console.log('SubscriptionOnboardingScreen: Rendered with selected plan:', selectedPlan);
 
   const handlePlanSelect = (plan: 'monthly' | 'annual') => {
     console.log('User selected plan:', plan);
@@ -467,31 +201,18 @@ export default function SubscriptionOnboardingScreen() {
   };
 
   const handleSubscribe = async () => {
-    console.log('User tapped Start Free Trial button for plan:', selectedPlan);
+    console.log('User tapped Start Free Trial button');
     setIsLoading(true);
-
-    const productId = selectedPlan === 'monthly'
-      ? SubscriptionProduct.MONTHLY
-      : SubscriptionProduct.YEARLY;
-
     try {
-      console.log('Initiating purchase for product:', productId);
-      const success = await SubscriptionManager.purchase(productId);
-
-      if (success) {
-        console.log('✓ Purchase successful');
-        setModalMessage('7-day trial started! Enjoy premium features.');
-        setShowSuccessModal(true);
-      } else {
-        console.log('❌ Purchase failed');
-        setModalMessage('Purchase failed. Please try again.');
-        setShowSuccessModal(true);
-      }
-    } catch (error) {
-      console.error('❌ Purchase error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'An error occurred';
-      setModalMessage(`Error: ${errorMessage}`);
+      const productId =
+        selectedPlan === 'monthly'
+          ? 'bioloop.premium.monthly'
+          : 'bioloop.premium.annual';
+      await SubscriptionManager.purchaseProduct(productId);
+      console.log('Subscription successful');
       setShowSuccessModal(true);
+    } catch (error) {
+      console.error('Subscription error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -500,43 +221,28 @@ export default function SubscriptionOnboardingScreen() {
   const handleRestore = async () => {
     console.log('User tapped Restore Purchases button');
     setIsLoading(true);
-
     try {
-      console.log('Restoring purchases...');
-      const success = await SubscriptionManager.restorePurchases();
-
-      if (success) {
-        console.log('✓ Restore successful');
-        setModalMessage('Purchases restored successfully!');
-        setShowRestoreModal(true);
-      } else {
-        console.log('❌ No purchases found');
-        setModalMessage('No purchases found to restore.');
-        setShowRestoreModal(true);
-      }
-    } catch (error) {
-      console.error('❌ Restore error:', error);
-      setModalMessage('Failed to restore purchases. Please try again.');
+      await SubscriptionManager.restorePurchases();
+      console.log('Restore successful');
       setShowRestoreModal(true);
+    } catch (error) {
+      console.error('Restore error:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleCloseSuccessModal = () => {
-    console.log('Closing success modal');
     setShowSuccessModal(false);
-    // Navigate back to profile after successful purchase
     router.back();
   };
 
   const handleCloseRestoreModal = () => {
-    console.log('Closing restore modal');
     setShowRestoreModal(false);
   };
 
   return (
-    <>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       <Stack.Screen
         options={{
           title: 'Premium',
@@ -544,57 +250,54 @@ export default function SubscriptionOnboardingScreen() {
           headerBackTitle: 'Back',
         }}
       />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.title}>Unlock Full Potential</Text>
-            <Text style={styles.subtitle}>
-              Get unlimited access to all premium features
-            </Text>
-          </View>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{ padding: 20 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Unlock Premium Features</Text>
+          <Text style={styles.subtitle}>
+            Get unlimited access to all features and insights
+          </Text>
+        </View>
 
-          {/* Features List */}
-          <View style={styles.features}>
-            <FeatureRow
-              icon="chart.line.uptrend.xyaxis"
-              title="30-Day History"
-              description="View complete trends and progress"
-            />
-            <FeatureRow
-              icon="heart.text.square"
-              title="BioAge Analysis"
-              description="Track biological age trajectory"
-            />
-            <FeatureRow
-              icon="chart.bar.fill"
-              title="Performance Insights"
-              description="Advanced metrics and recommendations"
-            />
-            <FeatureRow
-              icon="arrow.down.doc"
-              title="Export Data"
-              description="Download health data anytime"
-            />
-            <FeatureRow
-              icon="sparkles"
-              title="Priority Support"
-              description="Get help when you need it"
-            />
-          </View>
-
-          {/* Pricing Plans */}
-          <PricingPlans selected={selectedPlan} onSelect={handlePlanSelect} />
-
-          {/* Subscription Actions */}
-          <SubscriptionActions
-            plan={selectedPlan}
-            onSubscribe={handleSubscribe}
-            onRestore={handleRestore}
-            isLoading={isLoading}
+        {/* Features */}
+        <View style={styles.features}>
+          <FeatureRow
+            icon="history"
+            title="Unlimited History"
+            description="Access all your historical data and trends"
           />
-        </ScrollView>
-      </SafeAreaView>
+          <FeatureRow
+            icon="insights"
+            title="Advanced Insights"
+            description="Deep analysis of your health metrics"
+          />
+          <FeatureRow
+            icon="download"
+            title="Data Export"
+            description="Export your data anytime in CSV format"
+          />
+          <FeatureRow
+            icon="notifications"
+            title="Smart Notifications"
+            description="Get personalized health reminders"
+          />
+        </View>
+
+        {/* Pricing Plans */}
+        <PricingPlans selected={selectedPlan} onSelect={handlePlanSelect} />
+
+        {/* Actions */}
+        <SubscriptionActions
+          plan={selectedPlan}
+          onSubscribe={handleSubscribe}
+          onRestore={handleRestore}
+          isLoading={isLoading}
+        />
+      </ScrollView>
 
       {/* Success Modal */}
       <Modal
@@ -603,20 +306,18 @@ export default function SubscriptionOnboardingScreen() {
         animationType="fade"
         onRequestClose={handleCloseSuccessModal}
       >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={handleCloseSuccessModal}
-        >
+        <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <IconSymbol
               ios_icon_name="checkmark.circle.fill"
               android_material_icon_name="check-circle"
-              size={48}
-              color={Colors.accentGreen}
+              size={64}
+              color="#34C759"
             />
             <Text style={styles.modalTitle}>Success!</Text>
-            <Text style={styles.modalMessage}>{modalMessage}</Text>
+            <Text style={styles.modalMessage}>
+              Your 7-day free trial has started. Enjoy premium features!
+            </Text>
             <TouchableOpacity
               style={styles.modalButton}
               onPress={handleCloseSuccessModal}
@@ -624,7 +325,7 @@ export default function SubscriptionOnboardingScreen() {
               <Text style={styles.modalButtonText}>Continue</Text>
             </TouchableOpacity>
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
 
       {/* Restore Modal */}
@@ -634,29 +335,268 @@ export default function SubscriptionOnboardingScreen() {
         animationType="fade"
         onRequestClose={handleCloseRestoreModal}
       >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={handleCloseRestoreModal}
-        >
+        <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <IconSymbol
-              ios_icon_name="info.circle.fill"
-              android_material_icon_name="info"
-              size={48}
-              color={Colors.accentBlue}
+              ios_icon_name="checkmark.circle.fill"
+              android_material_icon_name="check-circle"
+              size={64}
+              color="#34C759"
             />
-            <Text style={styles.modalTitle}>Restore Purchases</Text>
-            <Text style={styles.modalMessage}>{modalMessage}</Text>
+            <Text style={styles.modalTitle}>Restored!</Text>
+            <Text style={styles.modalMessage}>
+              Your purchases have been restored successfully.
+            </Text>
             <TouchableOpacity
               style={styles.modalButton}
               onPress={handleCloseRestoreModal}
             >
-              <Text style={styles.modalButtonText}>OK</Text>
+              <Text style={styles.modalButtonText}>Continue</Text>
             </TouchableOpacity>
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
-    </>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  // Container
+  container: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+
+  // Header
+  header: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#000000',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#8E8E93',
+    textAlign: 'center',
+  },
+
+  // Features
+  features: {
+    marginBottom: 32,
+  },
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#F5F5F7',
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  featureIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E3F2FD',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  featureText: {
+    flex: 1,
+  },
+  featureTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000000',
+    marginBottom: 2,
+  },
+  featureDescription: {
+    fontSize: 13,
+    color: '#8E8E93',
+  },
+
+  // Plans
+  plans: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#000000',
+    marginBottom: 16,
+  },
+  planCard: {
+    padding: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#E5E5EA',
+    borderRadius: 16,
+    marginBottom: 12,
+    position: 'relative',
+  },
+  planAnnual: {
+    borderColor: '#007AFF',
+    backgroundColor: '#F0F9FF',
+  },
+  planSelected: {
+    borderColor: '#34C759',
+    backgroundColor: '#F0FFF4',
+  },
+  bestValueBadge: {
+    position: 'absolute',
+    top: -10,
+    right: 20,
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  bestValueText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  selectedBadge: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+  },
+  planHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    marginBottom: 4,
+  },
+  planName: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#000000',
+  },
+  planPrice: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#000000',
+  },
+  planPeriod: {
+    fontSize: 14,
+    color: '#8E8E93',
+    marginBottom: 8,
+  },
+  planSavings: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#34C759',
+    marginBottom: 8,
+  },
+  planDescription: {
+    fontSize: 13,
+    color: '#8E8E93',
+  },
+
+  // Actions
+  trialNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    backgroundColor: '#E3F2FD',
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  trialText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#007AFF',
+    marginLeft: 8,
+  },
+  subscribeButton: {
+    backgroundColor: '#007AFF',
+    padding: 18,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  subscribeButtonText: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  restoreButton: {
+    padding: 12,
+    alignItems: 'center',
+  },
+  restoreText: {
+    fontSize: 15,
+    color: '#007AFF',
+  },
+  terms: {
+    fontSize: 11,
+    color: '#8E8E93',
+    textAlign: 'center',
+    lineHeight: 16,
+    marginTop: 16,
+    marginBottom: 12,
+  },
+  links: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  link: {
+    fontSize: 12,
+    color: '#007AFF',
+  },
+  linkSeparator: {
+    fontSize: 12,
+    color: '#8E8E93',
+    marginHorizontal: 8,
+  },
+
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 32,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 340,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#000000',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: '#8E8E93',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  modalButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 12,
+    width: '100%',
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+});
