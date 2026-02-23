@@ -1,7 +1,11 @@
 
 import DataManager from '@/services/DataManager';
+import { Stack, useRouter } from 'expo-router';
 import { IconSymbol } from '@/components/IconSymbol';
 import { SubscriptionProduct } from '@/types/subscription';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useState } from 'react';
+import { useSubscription } from '@/hooks/useSubscription';
 import {
   View,
   Text,
@@ -13,11 +17,424 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import React, { useState } from 'react';
-import { useSubscription } from '@/hooks/useSubscription';
-import { Stack, useRouter } from 'expo-router';
 import { colors } from '@/styles/commonStyles';
+
+// Safe helper functions for SubscribedView
+function getPlanName(productId: string | null | undefined): string {
+  if (!productId) return 'Premium';
+  if (productId.includes('monthly')) return 'Monthly';
+  if (productId.includes('annual')) return 'Annual';
+  if (productId.includes('lifetime')) return 'Lifetime';
+  return 'Premium';
+}
+
+function getPlanPrice(productId: string | null | undefined): string {
+  if (!productId) return '';
+  if (productId.includes('monthly')) return '$1.49/mo';
+  if (productId.includes('annual')) return '$9.99/yr';
+  if (productId.includes('lifetime')) return '$89.99';
+  return '';
+}
+
+function formatDate(date: Date | null | undefined): string {
+  if (!date) return 'N/A';
+  try {
+    return new Date(date).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return 'N/A';
+  }
+}
+
+function isLifetime(productId: string | null | undefined): boolean {
+  return productId?.includes('lifetime') ?? false;
+}
+
+function openAppStore() {
+  Linking.openURL('https://apps.apple.com/account/subscriptions');
+}
+
+export default function ProfileScreen() {
+  const { status, loading, error, refetch } = useSubscription();
+  const router = useRouter();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.loadingContainer}>
+        <Stack.Screen options={{ title: 'Profile', headerShown: false }} />
+        <ActivityIndicator size="large" color={colors.primary} />
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.errorContainer}>
+        <Stack.Screen options={{ title: 'Profile', headerShown: false }} />
+        <IconSymbol
+          ios_icon_name="exclamationmark.triangle"
+          android_material_icon_name="warning"
+          size={48}
+          color="#FF3B30"
+        />
+        <Text style={styles.errorText}>Failed to load subscription</Text>
+        <TouchableOpacity onPress={refetch} style={styles.retryButton}>
+          <Text style={styles.retryText}>Retry</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
+  const isSubscribed = status?.isSubscribed ?? false;
+
+  function handleEditProfile() {
+    console.log('User tapped Edit Profile button');
+    router.push('/edit-profile');
+  }
+
+  function handleUpgradeToPremium() {
+    console.log('User tapped Upgrade to Premium button');
+    router.push('/subscription-onboarding');
+  }
+
+  function handleManageSubscription() {
+    console.log('User tapped Manage Subscription button');
+    openAppStore();
+  }
+
+  async function handleRestorePurchases() {
+    console.log('User tapped Restore Purchases button');
+    try {
+      await refetch();
+      Alert.alert('Success', 'Purchases restored successfully');
+    } catch (err) {
+      console.error('Failed to restore purchases:', err);
+      Alert.alert('Error', 'Failed to restore purchases');
+    }
+  }
+
+  function handleHealthKitPermissions() {
+    console.log('User tapped HealthKit Permissions button');
+    router.push('/onboarding/healthkit-permission');
+  }
+
+  function handleMetricsGuide() {
+    console.log('User tapped Metrics Guide button');
+    router.push('/metrics-glossary');
+  }
+
+  function handlePrivacyLink() {
+    console.log('User tapped Privacy Policy link');
+    Linking.openURL('https://bioloop.app/privacy');
+  }
+
+  function handleTermsLink() {
+    console.log('User tapped Terms of Service link');
+    Linking.openURL('https://bioloop.app/terms');
+  }
+
+  function handleDeleteAllData() {
+    console.log('User tapped Delete All Data button');
+    setShowDeleteModal(true);
+  }
+
+  async function confirmDeleteAllData() {
+    console.log('User confirmed Delete All Data');
+    setShowDeleteModal(false);
+    try {
+      await DataManager.clearAllData();
+      Alert.alert('Success', 'All data has been deleted');
+    } catch (err) {
+      console.error('Failed to delete data:', err);
+      Alert.alert('Error', 'Failed to delete data');
+    }
+  }
+
+  function cancelDeleteAllData() {
+    console.log('User cancelled Delete All Data');
+    setShowDeleteModal(false);
+  }
+
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <Stack.Screen options={{ title: 'Profile', headerShown: false }} />
+      <ScrollView style={styles.scrollView}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Profile</Text>
+        </View>
+
+        {/* Subscription Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionHeader}>Subscription</Text>
+          {isSubscribed ? (
+            <SubscribedView
+              productId={status?.productId}
+              expirationDate={status?.expirationDate}
+              onManage={handleManageSubscription}
+            />
+          ) : (
+            <FreeUserView
+              onUpgrade={handleUpgradeToPremium}
+              onRestore={handleRestorePurchases}
+            />
+          )}
+        </View>
+
+        {/* Settings Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionHeader}>Settings</Text>
+          <TouchableOpacity style={styles.settingRow} onPress={handleEditProfile}>
+            <IconSymbol
+              ios_icon_name="person.circle"
+              android_material_icon_name="person"
+              size={24}
+              color={colors.text}
+            />
+            <Text style={styles.settingText}>Edit Profile</Text>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="arrow-forward"
+              size={20}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.settingRow}
+            onPress={handleHealthKitPermissions}
+          >
+            <IconSymbol
+              ios_icon_name="heart.text.square"
+              android_material_icon_name="favorite"
+              size={24}
+              color={colors.text}
+            />
+            <Text style={styles.settingText}>HealthKit Permissions</Text>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="arrow-forward"
+              size={20}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.settingRow} onPress={handleMetricsGuide}>
+            <IconSymbol
+              ios_icon_name="book"
+              android_material_icon_name="description"
+              size={24}
+              color={colors.text}
+            />
+            <Text style={styles.settingText}>Metrics Guide</Text>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="arrow-forward"
+              size={20}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* About Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionHeader}>About</Text>
+          <TouchableOpacity style={styles.settingRow} onPress={handlePrivacyLink}>
+            <IconSymbol
+              ios_icon_name="lock.shield"
+              android_material_icon_name="lock"
+              size={24}
+              color={colors.text}
+            />
+            <Text style={styles.settingText}>Privacy Policy</Text>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="arrow-forward"
+              size={20}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.settingRow} onPress={handleTermsLink}>
+            <IconSymbol
+              ios_icon_name="doc.text"
+              android_material_icon_name="description"
+              size={24}
+              color={colors.text}
+            />
+            <Text style={styles.settingText}>Terms of Service</Text>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="arrow-forward"
+              size={20}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* Danger Zone */}
+        <View style={styles.section}>
+          <Text style={styles.sectionHeader}>Danger Zone</Text>
+          <TouchableOpacity
+            style={styles.dangerRow}
+            onPress={handleDeleteAllData}
+          >
+            <IconSymbol
+              ios_icon_name="trash"
+              android_material_icon_name="delete"
+              size={24}
+              color="#FF3B30"
+            />
+            <Text style={styles.dangerText}>Delete All Data</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>BioLoop v1.0.0</Text>
+        </View>
+      </ScrollView>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={showDeleteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={cancelDeleteAllData}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Delete All Data?</Text>
+            <Text style={styles.modalMessage}>
+              This will permanently delete all your health data, metrics, and
+              settings. This action cannot be undone.
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalButtonCancel}
+                onPress={cancelDeleteAllData}
+              >
+                <Text style={styles.modalButtonCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalButtonDelete}
+                onPress={confirmDeleteAllData}
+              >
+                <Text style={styles.modalButtonDeleteText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
+  );
+}
+
+function SubscribedView({
+  productId,
+  expirationDate,
+  onManage,
+}: {
+  productId?: string | null;
+  expirationDate?: Date | null;
+  onManage: () => void;
+}) {
+  const planName = getPlanName(productId);
+  const planPrice = getPlanPrice(productId);
+  const lifetime = isLifetime(productId);
+  const nextBilling = formatDate(expirationDate);
+
+  return (
+    <View style={styles.subscribedCard}>
+      <View style={styles.premiumBadge}>
+        <IconSymbol
+          ios_icon_name="crown.fill"
+          android_material_icon_name="star"
+          size={18}
+          color="#FFD700"
+        />
+        <Text style={styles.badgeText}>Premium Active</Text>
+      </View>
+
+      <View style={styles.detailsContainer}>
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Plan</Text>
+          <Text style={styles.detailValue} numberOfLines={1}>
+            {planName}
+          </Text>
+        </View>
+
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Price</Text>
+          <Text style={styles.detailValue} numberOfLines={1}>
+            {planPrice}
+          </Text>
+        </View>
+
+        {!lifetime && expirationDate && (
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Next Billing</Text>
+            <Text style={styles.detailValue} numberOfLines={1}>
+              {nextBilling}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      <TouchableOpacity style={styles.manageButton} onPress={onManage}>
+        <Text style={styles.manageText}>Manage</Text>
+        <IconSymbol
+          ios_icon_name="chevron.right"
+          android_material_icon_name="arrow-forward"
+          size={14}
+          color="#007AFF"
+        />
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+function FreeUserView({
+  onUpgrade,
+  onRestore,
+}: {
+  onUpgrade: () => void;
+  onRestore: () => void;
+}) {
+  return (
+    <View style={styles.freeCard}>
+      <Text style={styles.freeTitle}>Unlock Premium</Text>
+      <Text style={styles.freeDesc}>
+        Get advanced analytics, biological age tracking, and personalized insights
+      </Text>
+
+      <View style={styles.priceRow}>
+        <View style={styles.priceBox}>
+          <Text style={styles.priceLabel}>Monthly</Text>
+          <Text style={styles.priceAmount}>$1.49</Text>
+        </View>
+        <View style={styles.priceDivider} />
+        <View style={styles.priceBox}>
+          <Text style={styles.priceLabel}>Annual</Text>
+          <Text style={styles.priceAmount}>$9.99</Text>
+          <Text style={styles.priceSave}>Save 44%</Text>
+        </View>
+      </View>
+
+      <TouchableOpacity style={styles.upgradeBtn} onPress={onUpgrade}>
+        <Text style={styles.upgradeBtnText}>View Plans</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.restoreBtn} onPress={onRestore}>
+        <Text style={styles.restoreBtnText}>Restore Purchases</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -45,7 +462,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   retryButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
@@ -55,22 +472,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
+  scrollView: {
+    flex: 1,
+  },
   header: {
     padding: 20,
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 34,
     fontWeight: 'bold',
     color: colors.text,
-    marginBottom: 8,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
   },
   section: {
     backgroundColor: colors.card,
@@ -213,517 +624,90 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#007AFF',
   },
-  listItem: {
+  settingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingVertical: 12,
-    paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  listItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  settingText: {
     flex: 1,
-  },
-  listItemText: {
     fontSize: 16,
     color: colors.text,
     marginLeft: 12,
   },
-  deleteButton: {
-    backgroundColor: '#FF3B30',
-    padding: 16,
-    borderRadius: 8,
+  dangerRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    margin: 16,
+    paddingVertical: 12,
   },
-  deleteButtonText: {
+  dangerText: {
+    flex: 1,
     fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    color: '#FF3B30',
+    marginLeft: 12,
+  },
+  footer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  footerText: {
+    fontSize: 12,
+    color: colors.textSecondary,
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   modalContent: {
     backgroundColor: colors.card,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 24,
-    width: '80%',
+    width: '100%',
     maxWidth: 400,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: colors.text,
     marginBottom: 12,
-    textAlign: 'center',
   },
   modalMessage: {
-    fontSize: 14,
+    fontSize: 15,
     color: colors.textSecondary,
     marginBottom: 24,
-    textAlign: 'center',
+    lineHeight: 22,
   },
   modalButtons: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  modalButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginHorizontal: 6,
+    gap: 12,
   },
   modalButtonCancel: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 8,
     backgroundColor: colors.background,
+    alignItems: 'center',
   },
-  modalButtonConfirm: {
-    backgroundColor: '#FF3B30',
-  },
-  modalButtonText: {
+  modalButtonCancelText: {
     fontSize: 16,
     fontWeight: '600',
-  },
-  modalButtonTextCancel: {
     color: colors.text,
   },
-  modalButtonTextConfirm: {
+  modalButtonDelete: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 8,
+    backgroundColor: '#FF3B30',
+    alignItems: 'center',
+  },
+  modalButtonDeleteText: {
+    fontSize: 16,
+    fontWeight: '600',
     color: '#FFFFFF',
   },
 });
-
-export default function ProfileScreen() {
-  const { status, loading, error, refetch } = useSubscription();
-  const router = useRouter();
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-
-  console.log('ProfileScreen (iOS): Subscription status:', status, 'loading:', loading, 'error:', error);
-
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.loadingContainer} edges={['top']}>
-        <Stack.Screen options={{ title: 'Profile', headerShown: false }} />
-        <ActivityIndicator size="large" color="#007AFF" />
-      </SafeAreaView>
-    );
-  }
-
-  if (error) {
-    return (
-      <SafeAreaView style={styles.errorContainer} edges={['top']}>
-        <Stack.Screen options={{ title: 'Profile', headerShown: false }} />
-        <IconSymbol
-          ios_icon_name="exclamationmark.triangle"
-          android_material_icon_name="warning"
-          size={48}
-          color="#FF3B30"
-        />
-        <Text style={styles.errorText}>Failed to load subscription</Text>
-        <TouchableOpacity onPress={() => refetch()} style={styles.retryButton}>
-          <Text style={styles.retryText}>Retry</Text>
-        </TouchableOpacity>
-      </SafeAreaView>
-    );
-  }
-
-  const isSubscribed = status?.isSubscribed ?? false;
-
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <Stack.Screen options={{ title: 'Profile', headerShown: false }} />
-      <ScrollView>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Profile</Text>
-          <Text style={styles.headerSubtitle}>Manage your account and settings</Text>
-        </View>
-
-        {/* Subscription Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionHeader}>Subscription</Text>
-          {isSubscribed ? (
-            <SubscribedView
-              productId={status?.productId}
-              expirationDate={status?.expirationDate}
-              onManage={handleManageSubscription}
-            />
-          ) : (
-            <FreeUserView
-              onUpgrade={handleUpgradeToPremium}
-              onRestore={handleRestorePurchases}
-            />
-          )}
-        </View>
-
-        {/* Settings Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionHeader}>Settings</Text>
-          <TouchableOpacity style={styles.listItem} onPress={handleEditProfile}>
-            <View style={styles.listItemLeft}>
-              <IconSymbol
-                ios_icon_name="person.circle"
-                android_material_icon_name="person"
-                size={24}
-                color={colors.text}
-              />
-              <Text style={styles.listItemText}>Edit Profile</Text>
-            </View>
-            <IconSymbol
-              ios_icon_name="chevron.right"
-              android_material_icon_name="arrow-forward"
-              size={20}
-              color={colors.textSecondary}
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.listItem} onPress={handleHealthKitPermissions}>
-            <View style={styles.listItemLeft}>
-              <IconSymbol
-                ios_icon_name="heart.text.square"
-                android_material_icon_name="favorite"
-                size={24}
-                color={colors.text}
-              />
-              <Text style={styles.listItemText}>HealthKit Permissions</Text>
-            </View>
-            <IconSymbol
-              ios_icon_name="chevron.right"
-              android_material_icon_name="arrow-forward"
-              size={20}
-              color={colors.textSecondary}
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.listItem} onPress={handleMetricsGuide}>
-            <View style={styles.listItemLeft}>
-              <IconSymbol
-                ios_icon_name="info.circle"
-                android_material_icon_name="info"
-                size={24}
-                color={colors.text}
-              />
-              <Text style={styles.listItemText}>Metrics Guide</Text>
-            </View>
-            <IconSymbol
-              ios_icon_name="chevron.right"
-              android_material_icon_name="arrow-forward"
-              size={20}
-              color={colors.textSecondary}
-            />
-          </TouchableOpacity>
-        </View>
-
-        {/* Legal Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionHeader}>Legal</Text>
-          <TouchableOpacity style={styles.listItem} onPress={handlePrivacyLink}>
-            <View style={styles.listItemLeft}>
-              <IconSymbol
-                ios_icon_name="lock.shield"
-                android_material_icon_name="lock"
-                size={24}
-                color={colors.text}
-              />
-              <Text style={styles.listItemText}>Privacy Policy</Text>
-            </View>
-            <IconSymbol
-              ios_icon_name="chevron.right"
-              android_material_icon_name="arrow-forward"
-              size={20}
-              color={colors.textSecondary}
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.listItem} onPress={handleTermsLink}>
-            <View style={styles.listItemLeft}>
-              <IconSymbol
-                ios_icon_name="doc.text"
-                android_material_icon_name="description"
-                size={24}
-                color={colors.text}
-              />
-              <Text style={styles.listItemText}>Terms of Service</Text>
-            </View>
-            <IconSymbol
-              ios_icon_name="chevron.right"
-              android_material_icon_name="arrow-forward"
-              size={20}
-              color={colors.textSecondary}
-            />
-          </TouchableOpacity>
-        </View>
-
-        {/* Danger Zone */}
-        <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAllData}>
-          <Text style={styles.deleteButtonText}>Delete All Data</Text>
-        </TouchableOpacity>
-      </ScrollView>
-
-      {/* Delete Confirmation Modal */}
-      <Modal
-        visible={showDeleteModal}
-        transparent
-        animationType="fade"
-        onRequestClose={cancelDeleteAllData}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Delete All Data?</Text>
-            <Text style={styles.modalMessage}>
-              This will permanently delete all your health data, metrics, and settings. This action cannot be undone.
-            </Text>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonCancel]}
-                onPress={cancelDeleteAllData}
-              >
-                <Text style={[styles.modalButtonText, styles.modalButtonTextCancel]}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonConfirm]}
-                onPress={confirmDeleteAllData}
-              >
-                <Text style={[styles.modalButtonText, styles.modalButtonTextConfirm]}>Delete</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    </SafeAreaView>
-  );
-
-  function handleEditProfile() {
-    console.log('User tapped Edit Profile (iOS)');
-    router.push('/edit-profile');
-  }
-
-  function handleUpgradeToPremium() {
-    console.log('User tapped Upgrade to Premium (iOS)');
-    router.push('/subscription-onboarding');
-  }
-
-  function handleManageSubscription() {
-    console.log('User tapped Manage Subscription (iOS)');
-    Linking.openURL('https://apps.apple.com/account/subscriptions');
-  }
-
-  function handleRestorePurchases() {
-    console.log('User tapped Restore Purchases (iOS)');
-    // TODO: Implement restore purchases logic
-    Alert.alert('Restore Purchases', 'This feature will be implemented soon.');
-  }
-
-  function handleHealthKitPermissions() {
-    console.log('User tapped HealthKit Permissions (iOS)');
-    router.push('/onboarding/healthkit-permission');
-  }
-
-  function handleMetricsGuide() {
-    console.log('User tapped Metrics Guide (iOS)');
-    router.push('/metrics-glossary');
-  }
-
-  function handlePrivacyLink() {
-    console.log('User tapped Privacy Policy (iOS)');
-    Linking.openURL('https://bioloop.app/privacy');
-  }
-
-  function handleTermsLink() {
-    console.log('User tapped Terms of Service (iOS)');
-    Linking.openURL('https://bioloop.app/terms');
-  }
-
-  function handleDeleteAllData() {
-    console.log('User tapped Delete All Data (iOS)');
-    setShowDeleteModal(true);
-  }
-
-  async function confirmDeleteAllData() {
-    console.log('User confirmed Delete All Data (iOS)');
-    setShowDeleteModal(false);
-    try {
-      await DataManager.clearAllData();
-      Alert.alert('Success', 'All data has been deleted.');
-    } catch (err) {
-      console.error('Failed to delete data:', err);
-      Alert.alert('Error', 'Failed to delete data. Please try again.');
-    }
-  }
-
-  function cancelDeleteAllData() {
-    console.log('User cancelled Delete All Data (iOS)');
-    setShowDeleteModal(false);
-  }
-
-  function formatDate(date: Date | undefined): string {
-    if (!date) return 'N/A';
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  }
-
-  function getPlanName(productId: string | null | undefined): string {
-    if (!productId) return 'Premium';
-    if (productId.includes('monthly')) return 'Monthly';
-    if (productId.includes('annual')) return 'Annual';
-    if (productId.includes('lifetime')) return 'Lifetime';
-    return 'Premium';
-  }
-
-  function getPlanPrice(productId: string | null | undefined): string {
-    if (!productId) return '';
-    if (productId.includes('monthly')) return '$1.49/mo';
-    if (productId.includes('annual')) return '$9.99/yr';
-    if (productId.includes('lifetime')) return '$89.99';
-    return '';
-  }
-
-  function isLifetime(productId: string | null | undefined): boolean {
-    if (!productId) return false;
-    return productId.includes('lifetime');
-  }
-}
-
-function SubscribedView({
-  productId,
-  expirationDate,
-  onManage,
-}: {
-  productId?: string | null;
-  expirationDate?: Date | null;
-  onManage: () => void;
-}) {
-  const planName = getPlanName(productId);
-  const planPrice = getPlanPrice(productId);
-  const isLifetimePlan = isLifetime(productId);
-  const formattedDate = formatDate(expirationDate);
-
-  return (
-    <View style={styles.subscribedCard}>
-      <View style={styles.premiumBadge}>
-        <IconSymbol
-          ios_icon_name="crown.fill"
-          android_material_icon_name="star"
-          size={18}
-          color="#FFD700"
-        />
-        <Text style={styles.badgeText}>Premium Active</Text>
-      </View>
-
-      <View style={styles.detailsContainer}>
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Plan</Text>
-          <Text style={styles.detailValue} numberOfLines={1}>
-            {planName}
-          </Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Price</Text>
-          <Text style={styles.detailValue} numberOfLines={1}>
-            {planPrice}
-          </Text>
-        </View>
-        {!isLifetimePlan && (
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Next Billing</Text>
-            <Text style={styles.detailValue} numberOfLines={1}>
-              {formattedDate}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      <TouchableOpacity style={styles.manageButton} onPress={onManage}>
-        <Text style={styles.manageText}>Manage Subscription</Text>
-        <IconSymbol
-          ios_icon_name="chevron.right"
-          android_material_icon_name="arrow-forward"
-          size={14}
-          color="#007AFF"
-        />
-      </TouchableOpacity>
-    </View>
-  );
-
-  function getPlanName(productId: string | null | undefined): string {
-    if (!productId) return 'Premium';
-    if (productId.includes('monthly')) return 'Monthly';
-    if (productId.includes('annual')) return 'Annual';
-    if (productId.includes('lifetime')) return 'Lifetime';
-    return 'Premium';
-  }
-
-  function getPlanPrice(productId: string | null | undefined): string {
-    if (!productId) return '';
-    if (productId.includes('monthly')) return '$1.49/mo';
-    if (productId.includes('annual')) return '$9.99/yr';
-    if (productId.includes('lifetime')) return '$89.99';
-    return '';
-  }
-
-  function isLifetime(productId: string | null | undefined): boolean {
-    if (!productId) return false;
-    return productId.includes('lifetime');
-  }
-
-  function formatDate(date: Date | null | undefined): string {
-    if (!date) return 'N/A';
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  }
-}
-
-function FreeUserView({
-  onUpgrade,
-  onRestore,
-}: {
-  onUpgrade: () => void;
-  onRestore: () => void;
-}) {
-  return (
-    <View style={styles.freeCard}>
-      <IconSymbol
-        ios_icon_name="star.fill"
-        android_material_icon_name="star"
-        size={32}
-        color="#FFD700"
-      />
-      <Text style={styles.freeTitle}>Upgrade to Premium</Text>
-      <Text style={styles.freeDesc}>
-        Unlimited history, advanced insights, data export
-      </Text>
-
-      <View style={styles.priceRow}>
-        <View style={styles.priceBox}>
-          <Text style={styles.priceLabel}>Monthly</Text>
-          <Text style={styles.priceAmount}>$1.49</Text>
-        </View>
-        <View style={styles.priceDivider} />
-        <View style={styles.priceBox}>
-          <Text style={styles.priceLabel}>Annual</Text>
-          <Text style={styles.priceAmount}>$9.99</Text>
-          <Text style={styles.priceSave}>Save 44%</Text>
-        </View>
-      </View>
-
-      <TouchableOpacity style={styles.upgradeBtn} onPress={onUpgrade}>
-        <Text style={styles.upgradeBtnText}>View Plans</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.restoreBtn} onPress={onRestore}>
-        <Text style={styles.restoreBtnText}>Restore Purchases</Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
