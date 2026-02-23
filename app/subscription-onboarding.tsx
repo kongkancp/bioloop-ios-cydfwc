@@ -7,12 +7,16 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Modal,
+  Linking,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/IconSymbol';
 import { Colors } from '@/constants/Colors';
+import SubscriptionManager from '@/services/SubscriptionManager';
+import { SubscriptionProduct } from '@/types/subscription';
 
 const styles = StyleSheet.create({
   container: {
@@ -159,6 +163,112 @@ const styles = StyleSheet.create({
     top: 16,
     right: 16,
   },
+  trialNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.bgSurface,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  trialText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.accentBlue,
+    marginLeft: 8,
+  },
+  subscribeButton: {
+    backgroundColor: Colors.accentBlue,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 12,
+    shadowColor: Colors.accentBlue,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  subscribeButtonText: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: Colors.bgPrimary,
+  },
+  restoreButton: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  restoreText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.accentBlue,
+  },
+  terms: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  links: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  link: {
+    fontSize: 12,
+    color: Colors.accentBlue,
+    fontWeight: '600',
+  },
+  linkSeparator: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    marginHorizontal: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: Colors.bgCard,
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 15,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  modalButton: {
+    backgroundColor: Colors.accentBlue,
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: 8,
+    width: '100%',
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.bgPrimary,
+    textAlign: 'center',
+  },
 });
 
 interface FeatureRowProps {
@@ -265,8 +375,88 @@ function PricingPlans({ selected, onSelect }: PricingPlansProps) {
   );
 }
 
+interface SubscriptionActionsProps {
+  plan: 'monthly' | 'annual';
+  onSubscribe: () => void;
+  onRestore: () => void;
+  isLoading: boolean;
+}
+
+function SubscriptionActions({ plan, onSubscribe, onRestore, isLoading }: SubscriptionActionsProps) {
+  const priceText = plan === 'monthly' ? '$1.49/month' : '$9.99/year';
+
+  const handleTermsPress = () => {
+    console.log('User tapped Terms link');
+    Linking.openURL('https://bioloop.app/terms');
+  };
+
+  const handlePrivacyPress = () => {
+    console.log('User tapped Privacy link');
+    Linking.openURL('https://bioloop.app/privacy');
+  };
+
+  return (
+    <>
+      {/* Free Trial Notice */}
+      <View style={styles.trialNotice}>
+        <IconSymbol
+          ios_icon_name="gift.fill"
+          android_material_icon_name="card-giftcard"
+          size={24}
+          color={Colors.accentBlue}
+        />
+        <Text style={styles.trialText}>Start 7-day free trial</Text>
+      </View>
+
+      {/* Subscribe Button */}
+      <TouchableOpacity
+        style={styles.subscribeButton}
+        onPress={onSubscribe}
+        disabled={isLoading}
+        activeOpacity={0.8}
+      >
+        {isLoading ? (
+          <ActivityIndicator color={Colors.bgPrimary} />
+        ) : (
+          <Text style={styles.subscribeButtonText}>Start Free Trial</Text>
+        )}
+      </TouchableOpacity>
+
+      {/* Restore Button */}
+      <TouchableOpacity
+        style={styles.restoreButton}
+        onPress={onRestore}
+        disabled={isLoading}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.restoreText}>Restore Purchases</Text>
+      </TouchableOpacity>
+
+      {/* Terms */}
+      <Text style={styles.terms}>
+        Free for 7 days, then {priceText}. Cancel anytime. Auto-renews unless cancelled 24h before period ends.
+      </Text>
+
+      {/* Links */}
+      <View style={styles.links}>
+        <TouchableOpacity onPress={handleTermsPress}>
+          <Text style={styles.link}>Terms</Text>
+        </TouchableOpacity>
+        <Text style={styles.linkSeparator}>•</Text>
+        <TouchableOpacity onPress={handlePrivacyPress}>
+          <Text style={styles.link}>Privacy</Text>
+        </TouchableOpacity>
+      </View>
+    </>
+  );
+}
+
 export default function SubscriptionOnboardingScreen() {
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>('annual');
+  const [isLoading, setIsLoading] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [modalMessage, setModalMessage] = useState('');
   const router = useRouter();
 
   console.log('SubscriptionOnboardingScreen: Rendered with selected plan:', selectedPlan);
@@ -274,6 +464,75 @@ export default function SubscriptionOnboardingScreen() {
   const handlePlanSelect = (plan: 'monthly' | 'annual') => {
     console.log('User selected plan:', plan);
     setSelectedPlan(plan);
+  };
+
+  const handleSubscribe = async () => {
+    console.log('User tapped Start Free Trial button for plan:', selectedPlan);
+    setIsLoading(true);
+
+    const productId = selectedPlan === 'monthly'
+      ? SubscriptionProduct.MONTHLY
+      : SubscriptionProduct.YEARLY;
+
+    try {
+      console.log('Initiating purchase for product:', productId);
+      const success = await SubscriptionManager.purchase(productId);
+
+      if (success) {
+        console.log('✓ Purchase successful');
+        setModalMessage('7-day trial started! Enjoy premium features.');
+        setShowSuccessModal(true);
+      } else {
+        console.log('❌ Purchase failed');
+        setModalMessage('Purchase failed. Please try again.');
+        setShowSuccessModal(true);
+      }
+    } catch (error) {
+      console.error('❌ Purchase error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An error occurred';
+      setModalMessage(`Error: ${errorMessage}`);
+      setShowSuccessModal(true);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    console.log('User tapped Restore Purchases button');
+    setIsLoading(true);
+
+    try {
+      console.log('Restoring purchases...');
+      const success = await SubscriptionManager.restorePurchases();
+
+      if (success) {
+        console.log('✓ Restore successful');
+        setModalMessage('Purchases restored successfully!');
+        setShowRestoreModal(true);
+      } else {
+        console.log('❌ No purchases found');
+        setModalMessage('No purchases found to restore.');
+        setShowRestoreModal(true);
+      }
+    } catch (error) {
+      console.error('❌ Restore error:', error);
+      setModalMessage('Failed to restore purchases. Please try again.');
+      setShowRestoreModal(true);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCloseSuccessModal = () => {
+    console.log('Closing success modal');
+    setShowSuccessModal(false);
+    // Navigate back to profile after successful purchase
+    router.back();
+  };
+
+  const handleCloseRestoreModal = () => {
+    console.log('Closing restore modal');
+    setShowRestoreModal(false);
   };
 
   return (
@@ -327,9 +586,77 @@ export default function SubscriptionOnboardingScreen() {
           {/* Pricing Plans */}
           <PricingPlans selected={selectedPlan} onSelect={handlePlanSelect} />
 
-          {/* TODO: Add SubscriptionActions component in next part */}
+          {/* Subscription Actions */}
+          <SubscriptionActions
+            plan={selectedPlan}
+            onSubscribe={handleSubscribe}
+            onRestore={handleRestore}
+            isLoading={isLoading}
+          />
         </ScrollView>
       </SafeAreaView>
+
+      {/* Success Modal */}
+      <Modal
+        visible={showSuccessModal}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCloseSuccessModal}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={handleCloseSuccessModal}
+        >
+          <View style={styles.modalContent}>
+            <IconSymbol
+              ios_icon_name="checkmark.circle.fill"
+              android_material_icon_name="check-circle"
+              size={48}
+              color={Colors.accentGreen}
+            />
+            <Text style={styles.modalTitle}>Success!</Text>
+            <Text style={styles.modalMessage}>{modalMessage}</Text>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={handleCloseSuccessModal}
+            >
+              <Text style={styles.modalButtonText}>Continue</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Restore Modal */}
+      <Modal
+        visible={showRestoreModal}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCloseRestoreModal}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={handleCloseRestoreModal}
+        >
+          <View style={styles.modalContent}>
+            <IconSymbol
+              ios_icon_name="info.circle.fill"
+              android_material_icon_name="info"
+              size={48}
+              color={Colors.accentBlue}
+            />
+            <Text style={styles.modalTitle}>Restore Purchases</Text>
+            <Text style={styles.modalMessage}>{modalMessage}</Text>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={handleCloseRestoreModal}
+            >
+              <Text style={styles.modalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </>
   );
 }
