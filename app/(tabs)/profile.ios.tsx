@@ -1,12 +1,10 @@
 
 import { SubscriptionProduct } from '@/types/subscription';
 import { Stack, useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSubscription } from '@/hooks/useSubscription';
 import { IconSymbol } from '@/components/IconSymbol';
-import React, { useState } from 'react';
-import { colors } from '@/styles/commonStyles';
 import DataManager from '@/services/DataManager';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -18,6 +16,8 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { colors } from '@/styles/commonStyles';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -96,7 +96,7 @@ export default function ProfileScreen() {
     });
   }
 
-  function getPlanName(productId: string | undefined): string {
+  function getPlanName(productId: string | null | undefined): string {
     if (!productId) return 'Premium';
     if (productId.includes('monthly')) return 'Monthly';
     if (productId.includes('annual')) return 'Annual';
@@ -104,7 +104,7 @@ export default function ProfileScreen() {
     return 'Premium';
   }
 
-  function getPlanPrice(productId: string | undefined): string {
+  function getPlanPrice(productId: string | null | undefined): string {
     if (!productId) return '';
     if (productId.includes('monthly')) return '$1.49/mo';
     if (productId.includes('annual')) return '$9.99/yr';
@@ -112,9 +112,19 @@ export default function ProfileScreen() {
     return '';
   }
 
-  function isLifetime(productId: string | undefined): boolean {
+  function isLifetime(productId: string | null | undefined): boolean {
     return productId?.includes('lifetime') || false;
   }
+
+  // Extract values with safe defaults
+  const isSubscribed = status?.isSubscribed ?? false;
+  const currentSubscription = status?.currentSubscription ?? null;
+  const expirationDate = status?.expirationDate;
+
+  const planName = getPlanName(currentSubscription);
+  const planPrice = getPlanPrice(currentSubscription);
+  const isLifetimePlan = isLifetime(currentSubscription);
+  const nextBillingDate = formatDate(expirationDate);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -132,7 +142,7 @@ export default function ProfileScreen() {
           <Text style={styles.sectionHeader}>Subscription</Text>
           {loading ? (
             <ActivityIndicator size="small" color={colors.accentBlue} />
-          ) : status.isSubscribed ? (
+          ) : isSubscribed ? (
             <View style={styles.subscribedCard}>
               <View style={styles.premiumBadge}>
                 <IconSymbol
@@ -148,20 +158,20 @@ export default function ProfileScreen() {
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Plan</Text>
                   <Text style={styles.detailValue} numberOfLines={1}>
-                    {getPlanName(status.productId)}
+                    {planName}
                   </Text>
                 </View>
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Price</Text>
                   <Text style={styles.detailValue} numberOfLines={1}>
-                    {getPlanPrice(status.productId)}
+                    {planPrice}
                   </Text>
                 </View>
-                {!isLifetime(status.productId) && (
+                {!isLifetimePlan && (
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Next Billing</Text>
                     <Text style={styles.detailValue} numberOfLines={1}>
-                      {formatDate(status.expirationDate)}
+                      {nextBillingDate}
                     </Text>
                   </View>
                 )}

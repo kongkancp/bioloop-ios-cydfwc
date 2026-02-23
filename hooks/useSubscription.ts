@@ -6,30 +6,81 @@ import { SubscriptionStatus, SubscriptionProduct } from '@/types/subscription';
 /**
  * Hook for managing subscription state and operations
  * Follows the StoreKit 2 observable pattern from the Swift implementation
+ * 
+ * CRITICAL: This hook ALWAYS returns a valid status object to prevent undefined crashes
  */
 export function useSubscription() {
-  const [status, setStatus] = useState<SubscriptionStatus>(
-    SubscriptionManager.getSubscriptionStatus()
-  );
-  const [isLoading, setIsLoading] = useState(false);
+  // Initialize with a default valid status to prevent undefined access
+  const [status, setStatus] = useState<SubscriptionStatus>({
+    isSubscribed: false,
+    currentSubscription: null,
+    expirationDate: undefined,
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     console.log('useSubscription: Initializing subscription manager');
     
+    let isMounted = true;
+
     // Initialize the manager
-    SubscriptionManager.initialize().catch((error) => {
-      console.error('useSubscription: Initialization failed', error);
-    });
+    const initializeManager = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        await SubscriptionManager.initialize();
+
+        // Get initial status
+        if (isMounted) {
+          const initialStatus = SubscriptionManager.getSubscriptionStatus();
+          console.log('useSubscription: Initial status loaded', initialStatus);
+          
+          // Ensure we always have a valid status object
+          setStatus({
+            isSubscribed: initialStatus?.isSubscribed ?? false,
+            currentSubscription: initialStatus?.currentSubscription ?? null,
+            expirationDate: initialStatus?.expirationDate,
+          });
+        }
+      } catch (err) {
+        console.error('useSubscription: Initialization failed', err);
+        if (isMounted) {
+          setError(err as Error);
+          // Even on error, ensure we have a valid status object
+          setStatus({
+            isSubscribed: false,
+            currentSubscription: null,
+            expirationDate: undefined,
+          });
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    initializeManager();
 
     // Subscribe to status changes
     const unsubscribe = SubscriptionManager.subscribe((newStatus) => {
       console.log('useSubscription: Status updated', newStatus);
-      setStatus(newStatus);
+      if (isMounted) {
+        // Ensure we always have a valid status object
+        setStatus({
+          isSubscribed: newStatus?.isSubscribed ?? false,
+          currentSubscription: newStatus?.currentSubscription ?? null,
+          expirationDate: newStatus?.expirationDate,
+        });
+      }
     });
 
     // Cleanup on unmount
     return () => {
       console.log('useSubscription: Cleaning up');
+      isMounted = false;
       unsubscribe();
     };
   }, []);
@@ -41,6 +92,7 @@ export function useSubscription() {
   const purchase = async (productId: SubscriptionProduct): Promise<boolean> => {
     console.log('useSubscription: Starting purchase', productId);
     setIsLoading(true);
+    setError(null);
     
     try {
       const success = await SubscriptionManager.purchase(productId);
@@ -52,8 +104,9 @@ export function useSubscription() {
       }
       
       return success;
-    } catch (error) {
-      console.error('❌ useSubscription: Purchase error', error);
+    } catch (err) {
+      console.error('❌ useSubscription: Purchase error', err);
+      setError(err as Error);
       return false;
     } finally {
       setIsLoading(false);
@@ -67,6 +120,7 @@ export function useSubscription() {
   const restorePurchases = async (): Promise<boolean> => {
     console.log('useSubscription: Starting restore');
     setIsLoading(true);
+    setError(null);
     
     try {
       const success = await SubscriptionManager.restorePurchases();
@@ -78,20 +132,64 @@ export function useSubscription() {
       }
       
       return success;
-    } catch (error) {
-      console.error('❌ useSubscription: Restore error', error);
+    } catch (err) {
+      console.error('❌ useSubscription: Restore error', err);
+      setError(err as Error);
       return false;
     } finally {
       setIsLoading(false);
     }
   };
 
+  /**
+   * Manually refetch subscription status
+   */
+  const refetch = async (): Promise<void> => {
+    console.log('useSubscription: Manual refetch requested');
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      await SubscriptionManager.initialize();
+      const currentStatus = SubscriptionManager.getSubscriptionStatus();
+      
+      setStatus({
+        isSubscribed: currentStatus?.isSubscribed ?? false,
+        currentSubscription: currentStatus?.currentSubscription ?? null,
+        expirationDate: currentStatus?.expirationDate,
+      });
+      
+      console.log('✓ useSubscription: Refetch successful', currentStatus);
+    } catch (err) {
+      console.error('❌ useSubscription: Refetch error', err);
+      setError(err as Error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Return a complete object with all properties guaranteed to be defined
   return {
+    // Status properties - always defined
+    status: {
+      isSubscribed: status.isSubscribed,
+      currentSubscription: status.currentSubscription,
+      expirationDate: status.expirationDate,
+    },
+    
+    // Legacy individual properties for backward compatibility
     isSubscribed: status.isSubscribed,
     currentSubscription: status.currentSubscription,
     expirationDate: status.expirationDate,
+    
+    // Loading and error states
+    loading: isLoading,
     isLoading,
+    error,
+    
+    // Actions
     purchase,
     restorePurchases,
+    refetch,
   };
 }
