@@ -1,13 +1,12 @@
 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/styles/commonStyles';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
-  Dimensions,
   ActivityIndicator,
 } from 'react-native';
 import { Stack } from 'expo-router';
@@ -169,11 +168,7 @@ function getColor(l: number): string {
 function WeeklyLoadChart() {
   const [days, setDays] = useState<DayLoad[]>([]);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = () => {
+  const loadData = useCallback(() => {
     const mockDays: DayLoad[] = [];
     for (let i = 0; i < 7; i++) {
       mockDays.push({
@@ -183,7 +178,11 @@ function WeeklyLoadChart() {
       });
     }
     setDays(mockDays);
-  };
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const getDayLabel = (i: number): string => {
     const labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
