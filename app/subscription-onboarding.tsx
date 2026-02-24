@@ -3,6 +3,7 @@ import { SubscriptionProduct } from '@/types/subscription';
 import { Stack, useRouter } from 'expo-router';
 import { IconSymbol } from '@/components/IconSymbol';
 import SubscriptionManager from '@/services/SubscriptionManager';
+import RestoreButton from '@/components/RestoreButton';
 import {
   View,
   Text,
@@ -32,7 +33,6 @@ interface PricingPlansProps {
 interface SubscriptionActionsProps {
   plan: 'monthly' | 'annual';
   onSubscribe: () => void;
-  onRestore: () => void;
   isLoading: boolean;
 }
 
@@ -121,7 +121,6 @@ function PricingPlans({ selected, onSelect }: PricingPlansProps) {
 function SubscriptionActions({
   plan,
   onSubscribe,
-  onRestore,
   isLoading,
 }: SubscriptionActionsProps) {
   const handleTermsPress = () => {
@@ -160,14 +159,8 @@ function SubscriptionActions({
         )}
       </TouchableOpacity>
 
-      {/* Restore */}
-      <TouchableOpacity
-        style={styles.restoreButton}
-        onPress={onRestore}
-        disabled={isLoading}
-      >
-        <Text style={styles.restoreText}>Restore Purchases</Text>
-      </TouchableOpacity>
+      {/* Restore Button */}
+      <RestoreButton variant="secondary" />
 
       {/* Terms */}
       <Text style={styles.terms}>
@@ -193,7 +186,6 @@ export default function SubscriptionOnboardingScreen() {
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>('annual');
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [showRestoreModal, setShowRestoreModal] = useState(false);
 
   const handlePlanSelect = (plan: 'monthly' | 'annual') => {
     console.log('User selected plan:', plan);
@@ -218,27 +210,9 @@ export default function SubscriptionOnboardingScreen() {
     }
   };
 
-  const handleRestore = async () => {
-    console.log('User tapped Restore Purchases button');
-    setIsLoading(true);
-    try {
-      await SubscriptionManager.restorePurchases();
-      console.log('Restore successful');
-      setShowRestoreModal(true);
-    } catch (error) {
-      console.error('Restore error:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleCloseSuccessModal = () => {
     setShowSuccessModal(false);
     router.back();
-  };
-
-  const handleCloseRestoreModal = () => {
-    setShowRestoreModal(false);
   };
 
   return (
@@ -294,7 +268,6 @@ export default function SubscriptionOnboardingScreen() {
         <SubscriptionActions
           plan={selectedPlan}
           onSubscribe={handleSubscribe}
-          onRestore={handleRestore}
           isLoading={isLoading}
         />
       </ScrollView>
@@ -321,35 +294,6 @@ export default function SubscriptionOnboardingScreen() {
             <TouchableOpacity
               style={styles.modalButton}
               onPress={handleCloseSuccessModal}
-            >
-              <Text style={styles.modalButtonText}>Continue</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Restore Modal */}
-      <Modal
-        visible={showRestoreModal}
-        transparent
-        animationType="fade"
-        onRequestClose={handleCloseRestoreModal}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <IconSymbol
-              ios_icon_name="checkmark.circle.fill"
-              android_material_icon_name="check-circle"
-              size={64}
-              color="#34C759"
-            />
-            <Text style={styles.modalTitle}>Restored!</Text>
-            <Text style={styles.modalMessage}>
-              Your purchases have been restored successfully.
-            </Text>
-            <TouchableOpacity
-              style={styles.modalButton}
-              onPress={handleCloseRestoreModal}
             >
               <Text style={styles.modalButtonText}>Continue</Text>
             </TouchableOpacity>
@@ -525,14 +469,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '600',
     color: '#FFFFFF',
-  },
-  restoreButton: {
-    padding: 12,
-    alignItems: 'center',
-  },
-  restoreText: {
-    fontSize: 15,
-    color: '#007AFF',
   },
   terms: {
     fontSize: 11,

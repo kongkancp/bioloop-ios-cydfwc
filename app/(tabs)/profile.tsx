@@ -4,6 +4,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { SubscriptionProduct } from '@/types/subscription';
 import { useSubscription } from '@/hooks/useSubscription';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import RestoreButton from '@/components/RestoreButton';
 import React, { useState } from 'react';
 import {
   View,
@@ -113,17 +114,6 @@ export default function ProfileScreen() {
     openAppStore();
   }
 
-  async function handleRestorePurchases() {
-    console.log('User tapped Restore Purchases button');
-    try {
-      await refetch();
-      Alert.alert('Success', 'Purchases restored successfully');
-    } catch (err) {
-      console.error('Failed to restore purchases:', err);
-      Alert.alert('Error', 'Failed to restore purchases');
-    }
-  }
-
   function handleHealthKitPermissions() {
     console.log('User tapped HealthKit Permissions button');
     router.push('/onboarding/healthkit-permission');
@@ -180,15 +170,12 @@ export default function ProfileScreen() {
           <Text style={styles.sectionHeader}>Subscription</Text>
           {isSubscribed ? (
             <SubscribedView
-              productId={status?.productId}
+              productId={status?.currentSubscription}
               expirationDate={status?.expirationDate}
               onManage={handleManageSubscription}
             />
           ) : (
-            <FreeUserView
-              onUpgrade={handleUpgradeToPremium}
-              onRestore={handleRestorePurchases}
-            />
+            <FreeUserView onUpgrade={handleUpgradeToPremium} />
           )}
         </View>
 
@@ -400,17 +387,16 @@ function SubscribedView({
           color="#007AFF"
         />
       </TouchableOpacity>
+
+      {/* Restore Button */}
+      <View style={styles.restoreContainer}>
+        <RestoreButton variant="secondary" />
+      </View>
     </View>
   );
 }
 
-function FreeUserView({
-  onUpgrade,
-  onRestore,
-}: {
-  onUpgrade: () => void;
-  onRestore: () => void;
-}) {
+function FreeUserView({ onUpgrade }: { onUpgrade: () => void }) {
   return (
     <View style={styles.freeCard}>
       <Text style={styles.freeTitle}>Unlock Premium</Text>
@@ -435,9 +421,8 @@ function FreeUserView({
         <Text style={styles.upgradeBtnText}>View Plans</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.restoreBtn} onPress={onRestore}>
-        <Text style={styles.restoreBtnText}>Restore Purchases</Text>
-      </TouchableOpacity>
+      {/* Restore Button */}
+      <RestoreButton variant="secondary" />
     </View>
   );
 }
@@ -552,12 +537,16 @@ const styles = StyleSheet.create({
     padding: 12,
     backgroundColor: colors.card,
     borderRadius: 8,
+    marginBottom: 8,
   },
   manageText: {
     fontSize: 15,
     fontWeight: '600',
     color: '#007AFF',
     marginRight: 4,
+  },
+  restoreContainer: {
+    alignItems: 'center',
   },
   freeCard: {
     padding: 20,
@@ -622,14 +611,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
-  },
-  restoreBtn: {
-    padding: 12,
-    alignItems: 'center',
-  },
-  restoreBtnText: {
-    fontSize: 14,
-    color: '#007AFF',
   },
   settingRow: {
     flexDirection: 'row',
