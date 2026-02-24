@@ -5,19 +5,14 @@
 
 import { DailyMetrics, WorkoutSession, HealthKitError } from '@/types/health';
 import { startOfDay, endOfDay, subDays } from 'date-fns';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const MOCK_MODE_KEY = '@bioloop_mock_mode';
 
 class HealthKitManager {
   private static instance: HealthKitManager;
   private healthKitAvailable: boolean = false;
-  private mockMode: boolean = false;
 
   private constructor() {
     console.log('HealthKitManager: Initializing');
     this.healthKitAvailable = this.checkHealthKitAvailability();
-    this.loadMockMode();
   }
 
   public static getInstance(): HealthKitManager {
@@ -25,49 +20,6 @@ class HealthKitManager {
       HealthKitManager.instance = new HealthKitManager();
     }
     return HealthKitManager.instance;
-  }
-
-  private async loadMockMode(): Promise<void> {
-    try {
-      const mockModeValue = await AsyncStorage.getItem(MOCK_MODE_KEY);
-      this.mockMode = mockModeValue === 'true';
-      console.log('HealthKitManager: Mock mode:', this.mockMode);
-    } catch (error) {
-      console.error('HealthKitManager: Failed to load mock mode', error);
-      this.mockMode = false;
-    }
-  }
-
-  /**
-   * Enable mock mode for App Store review
-   * This simulates HealthKit permissions being granted
-   */
-  async enableMockMode(): Promise<void> {
-    console.log('HealthKitManager: Enabling mock mode (simulated permissions)');
-    this.mockMode = true;
-    await AsyncStorage.setItem(MOCK_MODE_KEY, 'true');
-  }
-
-  /**
-   * Disable mock mode
-   */
-  async disableMockMode(): Promise<void> {
-    console.log('HealthKitManager: Disabling mock mode');
-    this.mockMode = false;
-    await AsyncStorage.setItem(MOCK_MODE_KEY, 'false');
-  }
-
-  /**
-   * Check if mock mode is enabled
-   */
-  async isMockModeEnabled(): Promise<boolean> {
-    try {
-      const mockModeValue = await AsyncStorage.getItem(MOCK_MODE_KEY);
-      return mockModeValue === 'true';
-    } catch (error) {
-      console.error('HealthKitManager: Failed to check mock mode', error);
-      return false;
-    }
   }
 
   private checkHealthKitAvailability(): boolean {
@@ -79,12 +31,6 @@ class HealthKitManager {
   async requestAuthorization(): Promise<boolean> {
     try {
       console.log('HealthKitManager: Requesting HealthKit authorization');
-      
-      // If mock mode is enabled, simulate granted permissions
-      if (this.mockMode) {
-        console.log('HealthKitManager: Mock mode enabled - simulating granted permissions');
-        return true;
-      }
       
       // In a real implementation, this would call:
       // HKHealthStore.requestAuthorization(toShare: nil, read: healthKitReadTypes)
@@ -127,12 +73,6 @@ class HealthKitManager {
         };
       }
 
-      // If mock mode is enabled, generate realistic mock data
-      if (this.mockMode) {
-        console.log('HealthKitManager: Mock mode - generating simulated data');
-        return this.generateMockMetrics(date);
-      }
-
       const dayStart = startOfDay(date);
       const dayEnd = endOfDay(date);
 
@@ -169,82 +109,6 @@ class HealthKitManager {
         computedAt: new Date(),
       };
     }
-  }
-
-  /**
-   * Generate realistic mock metrics for demo/review purposes
-   */
-  private generateMockMetrics(date: Date): DailyMetrics {
-    const dayStart = startOfDay(date);
-    const daysAgo = Math.floor((new Date().getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-    
-    // Add realistic variation
-    const trend = Math.sin(daysAgo / 7) * 5;
-    const randomVariation = (Math.random() - 0.5) * 10;
-
-    // Resting HR: 58-66 bpm
-    const restingHR = Math.max(55, Math.min(70, 62 + trend + randomVariation * 0.5));
-
-    // HRV: 50-70 ms
-    const hrv = Math.max(45, Math.min(75, 60 + trend * 1.5 + randomVariation));
-
-    // VO2 Max: 38-46 ml/kg/min
-    const vo2max = Math.max(38, Math.min(46, 42 + trend * 0.5 + randomVariation * 0.3));
-
-    // Sleep: 6.5-8.5 hours (in minutes)
-    const sleepDuration = Math.max(360, Math.min(540, (7.5 + trend * 0.2 + randomVariation * 0.15) * 60));
-
-    // Body mass: 74-76 kg
-    const bodyMass = Math.max(73, Math.min(77, 75 + randomVariation * 0.1));
-
-    // Generate workouts (60% chance)
-    const workouts: WorkoutSession[] = [];
-    if (Math.random() > 0.4) {
-      const numWorkouts = Math.random() > 0.7 ? 2 : 1;
-      for (let i = 0; i < numWorkouts; i++) {
-        workouts.push(this.generateMockWorkout(date, i));
-      }
-    }
-
-    return {
-      date: dayStart,
-      restingHR,
-      hrv,
-      vo2max,
-      sleepDuration,
-      bodyMass,
-      workouts,
-      computedAt: new Date(),
-    };
-  }
-
-  /**
-   * Generate a realistic mock workout
-   */
-  private generateMockWorkout(date: Date, index: number): WorkoutSession {
-    const workoutTypes = ['Running', 'Cycling', 'Swimming', 'Strength Training', 'HIIT'];
-    const type = workoutTypes[Math.floor(Math.random() * workoutTypes.length)];
-
-    const startTime = new Date(date);
-    if (index === 0) {
-      startTime.setHours(7, 0, 0, 0);
-    } else {
-      startTime.setHours(18, 0, 0, 0);
-    }
-
-    const duration = 45 + Math.floor(Math.random() * 45);
-    const averageHR = 145 + Math.floor(Math.random() * 30);
-    const peakHR = 170 + Math.floor(Math.random() * 15);
-    const hrAfter60s = 125 + Math.floor(Math.random() * 15);
-
-    return {
-      startTime,
-      duration,
-      averageHR,
-      peakHR,
-      hrAfter60s,
-      type,
-    };
   }
 
   /**

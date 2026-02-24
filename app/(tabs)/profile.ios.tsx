@@ -1,6 +1,6 @@
 
 import { IconSymbol } from '@/components/IconSymbol';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/styles/commonStyles';
 import { SubscriptionProduct } from '@/types/subscription';
@@ -19,8 +19,6 @@ import {
 import { useSubscription } from '@/hooks/useSubscription';
 import DataManager from '@/services/DataManager';
 import RestoreButton from '@/components/RestoreButton';
-import HealthKitManager from '@/services/HealthKitManager';
-import MockDataGenerator from '@/services/MockDataGenerator';
 
 const styles = StyleSheet.create({
   container: {
@@ -249,55 +247,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
-  devSection: {
-    backgroundColor: '#FFF3CD',
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 2,
-    borderColor: '#FFC107',
-  },
-  devHeader: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#856404',
-    marginBottom: 12,
-  },
-  devDescription: {
-    fontSize: 14,
-    color: '#856404',
-    marginBottom: 12,
-    lineHeight: 20,
-  },
-  mockModeButton: {
-    backgroundColor: '#28A745',
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  mockModeButtonDisabled: {
-    backgroundColor: '#6C757D',
-  },
-  mockModeButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  generateDataButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  mockModeStatus: {
-    fontSize: 14,
-    color: '#856404',
-    marginTop: 8,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
 });
 
 function getPlanName(productId: string | null | undefined): string {
@@ -337,18 +286,6 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { status, loading, error, refetch } = useSubscription();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [mockModeEnabled, setMockModeEnabled] = useState(false);
-  const [isTogglingMock, setIsTogglingMock] = useState(false);
-  const [isGeneratingData, setIsGeneratingData] = useState(false);
-
-  useEffect(() => {
-    checkMockMode();
-  }, []);
-
-  async function checkMockMode() {
-    const enabled = await HealthKitManager.isMockModeEnabled();
-    setMockModeEnabled(enabled);
-  }
 
   function handleEditProfile() {
     console.log('User tapped Edit Profile');
@@ -423,59 +360,6 @@ export default function ProfileScreen() {
     setShowDeleteModal(false);
   }
 
-  async function handleToggleMockMode() {
-    if (isTogglingMock) return;
-    
-    console.log('User toggling mock mode');
-    setIsTogglingMock(true);
-    
-    try {
-      if (mockModeEnabled) {
-        await HealthKitManager.disableMockMode();
-        setMockModeEnabled(false);
-        Alert.alert(
-          'Mock Mode Disabled',
-          'Real HealthKit data will be used (if permissions are granted).',
-          [{ text: 'OK' }]
-        );
-      } else {
-        await HealthKitManager.enableMockMode();
-        setMockModeEnabled(true);
-        Alert.alert(
-          'Mock Mode Enabled',
-          'Simulated health data will be used. Perfect for App Store review!',
-          [{ text: 'OK' }]
-        );
-      }
-    } catch (error) {
-      console.error('Failed to toggle mock mode:', error);
-      Alert.alert('Error', 'Failed to toggle mock mode. Please try again.');
-    } finally {
-      setIsTogglingMock(false);
-    }
-  }
-
-  async function handleGenerateMockData() {
-    if (isGeneratingData) return;
-    
-    console.log('User generating mock data');
-    setIsGeneratingData(true);
-    
-    try {
-      await MockDataGenerator.generateAllData();
-      Alert.alert(
-        'Success',
-        '30 days of realistic health data has been generated! Pull to refresh on the Home screen to see it.',
-        [{ text: 'OK' }]
-      );
-    } catch (error) {
-      console.error('Failed to generate mock data:', error);
-      Alert.alert('Error', 'Failed to generate mock data. Please try again.');
-    } finally {
-      setIsGeneratingData(false);
-    }
-  }
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -513,51 +397,6 @@ export default function ProfileScreen() {
         }}
       />
       <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-        {/* Developer Tools Section */}
-        <View style={styles.devSection}>
-          <Text style={styles.devHeader}>🧪 App Review Mode</Text>
-          <Text style={styles.devDescription}>
-            Enable mock mode to simulate HealthKit permissions being granted. Perfect for App Store review!
-          </Text>
-          
-          <TouchableOpacity
-            style={[
-              styles.mockModeButton,
-              mockModeEnabled && styles.mockModeButtonDisabled,
-            ]}
-            onPress={handleToggleMockMode}
-            disabled={isTogglingMock}
-          >
-            {isTogglingMock ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Text style={styles.mockModeButtonText}>
-                {mockModeEnabled ? '✓ Mock Mode Enabled' : 'Enable Mock Mode'}
-              </Text>
-            )}
-          </TouchableOpacity>
-
-          {mockModeEnabled && (
-            <>
-              <TouchableOpacity
-                style={styles.generateDataButton}
-                onPress={handleGenerateMockData}
-                disabled={isGeneratingData}
-              >
-                {isGeneratingData ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.mockModeButtonText}>Generate 30 Days of Data</Text>
-                )}
-              </TouchableOpacity>
-              
-              <Text style={styles.mockModeStatus}>
-                Mock permissions are active. The app will show simulated health data.
-              </Text>
-            </>
-          )}
-        </View>
-
         {/* Subscription Section */}
         <View style={styles.section}>
           <Text style={styles.sectionHeader}>Subscription</Text>
